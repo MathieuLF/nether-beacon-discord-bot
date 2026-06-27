@@ -171,6 +171,15 @@
             "COMMUNITY"
           ],
           "everyonePreset": "voiceTalk"
+        },
+        {
+          "name": "🎮・en-partie",
+          "type": "GuildVoice",
+          "preset": "voiceTalk",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "voiceTalk"
         }
       ]
     },
