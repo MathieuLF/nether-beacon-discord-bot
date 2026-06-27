@@ -3,132 +3,14 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats and Pokédex commands.">
-    <meta name="theme-color" content="#ff7a2f">
-    <title>NeatherBeacon - Discord bot stack</title>
-    <link rel="stylesheet" href="assets/site.css">
+    <title>NeatherBeacon microsite</title>
+    <meta http-equiv="refresh" content="0; url=./site/">
+    <meta name="robots" content="noindex">
+    <script>
+      window.location.replace('./site/');
+    </script>
   </head>
   <body>
-    <header class="hero">
-      <div class="shell">
-        <nav class="nav" aria-label="Main navigation">
-          <div class="brand">
-            <span class="beacon" aria-hidden="true">🔥</span>
-            <span>NeatherBeacon</span>
-          </div>
-          <div class="links">
-            <a class="pill" href="./OPERATIONS.md">Operations</a>
-            <a class="pill" href="./PUBLICATION.md">Publication</a>
-            <a class="pill" href="./ASSETS.md">Assets</a>
-            <a class="pill" href="./LEGAL.md">Legal</a>
-          </div>
-        </nav>
-
-        <div class="hero-grid">
-          <div>
-            <div class="eyebrow">Self-hosted Discord stack</div>
-            <h1>One beacon for gamers, music, stats and Pokédex lookups.</h1>
-            <p class="lede">
-              NeatherBeacon keeps Alpha on server operations and public commands, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
-            </p>
-            <div class="actions">
-              <a class="button" href="#quickstart">Start setup</a>
-              <a class="button secondary" href="#commands">View commands</a>
-            </div>
-          </div>
-
-          <aside class="status-card" aria-label="Runtime preview">
-            <pre class="terminal"><span class="cursor">●</span> Alpha online
-mode        additive, non-destructive
-music       Muse 2.11.5
-stats       voice KPIs every 5 min
-pokedex     cached JSON + artwork
-public URL  not required</pre>
-          </aside>
-        </div>
-      </div>
-    </header>
-
-    <main>
-      <section class="section">
-        <div class="shell">
-          <h2>Designed for a small live server</h2>
-          <p class="section-intro">
-            The bot is intentionally cautious. It creates missing managed resources, reuses known Discord IDs, and reports ambiguous duplicates instead of deleting or guessing.
-          </p>
-          <div class="grid">
-            <article class="card">
-              <h3>Safe server sync</h3>
-              <p><strong>Alpha</strong> audits roles, categories and channels, then applies additive corrections only when intent is clear.</p>
-            </article>
-            <article class="card">
-              <h3>Music under one roof</h3>
-              <p><strong>Bravo</strong> runs upstream Muse in the same container with a Docker volume mounted at <code>/data</code>.</p>
-            </article>
-            <article class="card">
-              <h3>Public fun commands</h3>
-              <p>Pokédex commands use PokéAPI with local caching for JSON responses, evolution chains and Pokémon artwork.</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="commands">
-        <div class="shell">
-          <h2>Commands</h2>
-          <p class="section-intro">Admin commands stay locked down. Pokédex commands are public and rate-limited.</p>
-          <div class="commands">
-            <div class="command"><code>/status</code><br>Show Alpha, Bravo, runtime and cache status.</div>
-            <div class="command"><code>/audit</code><br>Compare desired server structure without changing anything.</div>
-            <div class="command"><code>/resync</code><br>Apply additive managed Discord changes.</div>
-            <div class="command"><code>/stats-refresh</code><br>Force the Stats voice channels to refresh.</div>
-            <div class="command"><code>/pokemon name:charizard</code><br>Return a cached Pokédex card with artwork.</div>
-            <div class="command"><code>/weakness pokemon:charizard</code><br>Show weaknesses, resistances and immunities.</div>
-            <div class="command"><code>/move name:flamethrower</code><br>Look up a move.</div>
-            <div class="command"><code>/random-pokemon</code><br>Pull a random Pokémon.</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="quickstart">
-        <div class="shell">
-          <h2>Quick start</h2>
-          <div class="timeline">
-            <div class="step">
-              <div>
-                <strong>Prepare secrets locally.</strong><br>
-                Copy <code>.env.example</code> to <code>.env</code> and fill Discord, YouTube and Spotify values. Never commit <code>.env</code>.
-              </div>
-            </div>
-            <div class="step">
-              <div>
-                <strong>Capture Discord IDs.</strong><br>
-                Run <code>npm run capture:ids</code> so managed resources are reused by ID.
-              </div>
-            </div>
-            <div class="step">
-              <div>
-                <strong>Build and restart with notice.</strong><br>
-                Run <code>.\scripts\rebuild-restart.ps1</code>. Alpha posts an orange maintenance message first.
-              </div>
-            </div>
-          </div>
-          <div class="actions">
-            <button class="button secondary" type="button" data-copy=".\scripts\rebuild-restart.ps1">Copy restart command</button>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <div class="shell">
-        <p>© <span data-year></span> NeatherBeacon contributors. Self-hosted, MIT licensed.</p>
-        <p>Public repository content must exclude tokens, runtime state and Muse data.</p>
-        <p>Independent project. No official ties to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse or PokéAPI.</p>
-        <p><a href="../LICENSE">License</a> · <a href="../NOTICE.md">Notices</a> · <a href="./LEGAL.md">Legal notes</a></p>
-      </div>
-    </footer>
-
-    <script src="assets/site.js"></script>
+    <p>Redirecting to <a href="./site/">NeatherBeacon microsite</a>…</p>
   </body>
 </html>

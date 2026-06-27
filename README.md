@@ -9,7 +9,7 @@
 [![discord.js](https://img.shields.io/badge/discord.js-14.26.4-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
-[![Microsite](https://img.shields.io/badge/Microsite-docs-222?logo=githubpages&logoColor=white)](docs/index.html)
+[![Microsite](https://img.shields.io/badge/Microsite-docs-222?logo=githubpages&logoColor=white)](docs/site/index.html)
 [![Tokei](https://tokei.rs/b1/github/MathieuLF/neather-beacon-discord-bot?category=code)](https://github.com/MathieuLF/neather-beacon-discord-bot)
 
 ## What it does
@@ -84,7 +84,9 @@ Pokédex JSON and artwork are cached under `runtime/pokedex-cache`.
 │   ├── capture-managed-ids.js
 │   └── rebuild-restart.ps1   # Discord orange notice + rebuild
 ├── docs/
-│   ├── index.html            # GitHub Pages microsite
+│   ├── site/
+│   │   ├── index.html        # GitHub Pages microsite
+│   │   └── assets/           # Microsite styles/scripts
 │   ├── OPERATIONS.md
 │   ├── PUBLICATION.md
 │   └── ASSETS.md
@@ -137,7 +139,7 @@ Before publishing:
 - keep `.env`, `runtime/`, `muse-data/` and Docker volumes private;
 - review the MIT license holder line in `LICENSE`;
 - review trademark and non-affiliation notices in `NOTICE.md`;
-- enable GitHub Pages from the `docs/` folder.
+- enable GitHub Pages from the `docs/` folder and keep the site entrypoint in `docs/site/`.
 
 Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 
@@ -147,7 +149,7 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 - [Publication checklist](docs/PUBLICATION.md)
 - [Legal notes](docs/LEGAL.md)
 - [Assets](docs/ASSETS.md)
-- [Microsite](docs/index.html)
+- [Microsite](docs/site/index.html)
 
 ## License, notices and trademarks
 
