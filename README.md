@@ -10,7 +10,6 @@
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
 [![Microsite](https://img.shields.io/badge/Microsite-docs-222?logo=githubpages&logoColor=white)](docs/site/index.html)
-[![Tokei](https://img.shields.io/endpoint?url=https%3A%2F%2Ftokei.rs%2Fb1%2Fgithub%2FMathieuLF%2Fneather-beacon-discord-bot%3Fcategory%3Dcode)](https://github.com/MathieuLF/neather-beacon-discord-bot)
 
 ## What it does
 
