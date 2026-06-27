@@ -9,7 +9,7 @@
 [![discord.js](https://img.shields.io/badge/discord.js-14.26.4-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
-[![Microsite](https://img.shields.io/badge/Microsite-docs-222?logo=githubpages&logoColor=white)](docs/site/index.html)
+[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-222?logo=githubpages&logoColor=white)](https://mathieulf.github.io/neather-beacon-discord-bot/)
 
 ## What it does
 
@@ -148,7 +148,8 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 - [Publication checklist](docs/PUBLICATION.md)
 - [Legal notes](docs/LEGAL.md)
 - [Assets](docs/ASSETS.md)
-- [Microsite](docs/site/index.html)
+- [Live site](https://mathieulf.github.io/neather-beacon-discord-bot/)
+- [Microsite source](docs/site/index.html)
 
 ## License, notices and trademarks
 
