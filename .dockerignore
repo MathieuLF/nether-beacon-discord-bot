@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+runtime
+muse-data
+coverage
+tmp
+temp
+*.log
+npm-debug.log*
+docker-compose.override.yml

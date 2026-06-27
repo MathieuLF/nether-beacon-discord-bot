@@ -1,0 +1,224 @@
+{
+  "managedMarker": "nether-beacon",
+  "adminRoleName": "Admin",
+  "defaultMemberRoleName": "Noob Spawn",
+  "eventChannelName": "📜・arrivées-et-départs",
+  "welcomeChannelName": "💬・général",
+  "logChannelName": "📚・logs",
+  "guild": {
+    "explicitContentFilter": "MembersWithoutRoles",
+    "verificationLevel": "Low"
+  },
+  "presets": {
+    "defaultText": [
+      "ViewChannel",
+      "ReadMessageHistory"
+    ],
+    "publicText": [
+      "ViewChannel",
+      "ReadMessageHistory",
+      "SendMessages",
+      "AddReactions"
+    ],
+    "textWrite": [
+      "ViewChannel",
+      "ReadMessageHistory",
+      "SendMessages",
+      "AddReactions",
+      "AttachFiles",
+      "EmbedLinks"
+    ],
+    "voiceTalk": [
+      "ViewChannel",
+      "Connect",
+      "Speak",
+      "UseVAD",
+      "Stream"
+    ]
+  },
+  "roles": [
+    {
+      "name": "Noob Spawn",
+      "color": 10339214,
+      "permissions": [],
+      "hoist": false
+    },
+    {
+      "name": "Carry Main",
+      "color": 8319321,
+      "permissions": [],
+      "hoist": false
+    },
+    {
+      "name": "Contributor",
+      "color": 3071347,
+      "permissions": [],
+      "hoist": false
+    },
+    {
+      "name": "Mod",
+      "color": 16761618,
+      "permissions": [
+        "KickMembers",
+        "BanMembers",
+        "ManageMessages",
+        "ModerateMembers",
+        "ManageThreads"
+      ],
+      "hoist": false
+    },
+    {
+      "name": "Admin",
+      "color": 16726072,
+      "permissions": [
+        "Administrator"
+      ],
+      "hoist": true
+    }
+  ],
+  "groups": {
+    "COMMUNITY": [
+      "Noob Spawn",
+      "Carry Main",
+      "Contributor",
+      "Mod",
+      "Admin"
+    ],
+    "ADMIN_ONLY": [
+      "Admin"
+    ],
+    "MOD_ONLY": [
+      "Mod"
+    ]
+  },
+  "sections": [
+    {
+      "category": "🌍 Communauté",
+      "legacyNames": [
+        "Communaute"
+      ],
+      "channels": [
+        {
+          "name": "💬・général",
+          "legacyNames": [
+            "general"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "topic": "Le cœur du serveur : papote, lance une game, partage ta vibe."
+        },
+        {
+          "name": "🧪・essais",
+          "legacyNames": [
+            "tests"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "defaultText",
+          "topic": "Tests, bots, commandes et petits essais sans polluer le général."
+        },
+        {
+          "name": "📜・arrivées-et-départs",
+          "legacyNames": [
+            "arrivees-et-departs"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "ADMIN_ONLY"
+          ],
+          "everyonePreset": "defaultText",
+          "allowExistingMove": true,
+          "topic": "Journaux du serveur : arrivées, départs et activité vocale."
+        },
+        {
+          "name": "🎮・invitations",
+          "legacyNames": [
+            "invitations",
+            "codes-invitation"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "topic": "Invitations de jeu, codes de lobby, seeds, realms et liens pour se rejoindre vite."
+        }
+      ]
+    },
+    {
+      "category": "🎙️ Vocaux",
+      "legacyNames": [
+        "Voice"
+      ],
+      "channels": [
+        {
+          "name": "🎧・salon-vocal",
+          "legacyNames": [
+            "voice-chat"
+          ],
+          "type": "GuildVoice",
+          "preset": "voiceTalk",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "voiceTalk"
+        }
+      ]
+    },
+    {
+      "category": "🛡️ Administration",
+      "legacyNames": [
+        "Administration"
+      ],
+      "channels": [
+        {
+          "name": "📚・logs",
+          "legacyNames": [
+            "logs"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "ADMIN_ONLY"
+          ],
+          "private": true,
+          "topic": "Logs techniques du bot : démarrage, audits, resynchronisations et état du conteneur."
+        },
+        {
+          "name": "🧠・admin-texte",
+          "legacyNames": [
+            "admin-texte"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "ADMIN_ONLY"
+          ],
+          "private": true,
+          "topic": "Coordination staff, décisions et messages réservés à l'administration."
+        },
+        {
+          "name": "👑・admin-vocal",
+          "legacyNames": [
+            "admin-voix"
+          ],
+          "type": "GuildVoice",
+          "preset": "voiceTalk",
+          "groups": [
+            "ADMIN_ONLY"
+          ],
+          "private": true
+        }
+      ]
+    }
+  ]
+}

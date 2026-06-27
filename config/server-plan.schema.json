@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "managedMarker",
+    "adminRoleName",
+    "defaultMemberRoleName",
+    "eventChannelName",
+    "welcomeChannelName",
+    "logChannelName",
+    "guild",
+    "presets",
+    "roles",
+    "groups",
+    "sections"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "managedMarker": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adminRoleName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "defaultMemberRoleName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eventChannelName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "welcomeChannelName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "logChannelName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "guild": {
+      "type": "object",
+      "required": [
+        "explicitContentFilter",
+        "verificationLevel"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "explicitContentFilter": {
+          "type": "string",
+          "enum": [
+            "Disabled",
+            "MembersWithoutRoles",
+            "AllMembers"
+          ]
+        },
+        "verificationLevel": {
+          "type": "string",
+          "enum": [
+            "None",
+            "Low",
+            "Medium",
+            "High",
+            "VeryHigh"
+          ]
+        }
+      }
+    },
+    "presets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "color",
+          "permissions",
+          "hoist"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "color": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "hoist": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "groups": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "category",
+          "channels"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "legacyNames": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "channels": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "type",
+                "preset",
+                "groups"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "legacyNames": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "GuildText",
+                    "GuildVoice"
+                  ]
+                },
+                "preset": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "groups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "readGroups": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "readPreset": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "everyonePreset": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "private": {
+                  "type": "boolean"
+                },
+                "allowExistingMove": {
+                  "type": "boolean"
+                },
+                "topic": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

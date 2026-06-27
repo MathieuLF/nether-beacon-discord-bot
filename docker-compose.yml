@@ -1,0 +1,30 @@
+name: nether-beacon
+
+services:
+  nether-beacon:
+    build: .
+    image: nether-beacon:latest
+    container_name: nether-beacon
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - muse-data:/data
+      - ./runtime:/bot/runtime
+    tmpfs:
+      - /tmp:size=512m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "/bot/healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+volumes:
+  muse-data:
+    external: true
+    name: example-muse-data
