@@ -386,7 +386,7 @@ const sendLog = async (guild, message) => sendMessageToChannel(guild, getLogChan
 const sendEventLog = async (guild, message) => sendMessageToChannel(guild, getEventChannelId(guild), message);
 const buildWelcomeMessage = (memberOrMention) =>
   formatBotMessage(`👋 Bienvenue ${memberOrMention} dans Gaymers`, [
-    'Prends une pioche, installe-toi, et saute dans une game quand tu veux.',
+    'Pose tes affaires, regarde les salons, et lance une game quand tu veux.',
   ]);
 
 const sendWelcomeMessage = async (member) => {
@@ -774,28 +774,28 @@ const summarizeStatus = (guild) => {
   const museState = supervisor?.children?.muse;
   const adminState = supervisor?.children?.admin;
   return [
-    '**🛰️ Statut NeatherBeacon Alpha**',
+    '**🛰️ NeatherBeacon Alpha en bref**',
     '',
-    '**Runtime**',
+    '**État général**',
     formatLine('Version', state.version),
-    formatLine('Uptime admin', formatDuration(state.startedAt)),
+    formatLine('Uptime', formatDuration(state.startedAt)),
     formatLine('Serveur', `${guild.name} (${guild.id})`),
-    formatLine('Bot admin', adminState?.running ? 'actif' : 'inconnu'),
-    formatLine('Muse', museState?.running ? 'actif' : 'inconnu'),
+    formatLine('Alpha', adminState?.running ? 'en ligne' : 'hors ligne'),
+    formatLine('Bravo', museState?.running ? 'en ligne' : 'hors ligne'),
     formatLine('Tâche active', state.activeTask || 'aucune'),
     '',
-    '**Canaux**',
-    formatLine('Logs bot', state.logChannelId || 'non détecté'),
+    '**Canaux suivis**',
+    formatLine('Logs', state.logChannelId || 'non détecté'),
     formatLine('Événements', state.eventChannelId || 'non détecté'),
     '',
-    '**Dernières activités**',
+    '**Derniers signaux**',
     formatLine('Resync', formatTimestamp(state.lastSync?.at)),
     formatLine('Audit', formatTimestamp(state.lastAudit?.at)),
     formatLine('Stats', formatTimestamp(state.lastStats?.at)),
     formatLine('Membre', state.lastMemberEvent || 'aucun'),
     formatLine('Vocal', state.lastVoiceEvent || 'aucun'),
     '',
-    '**Technique**',
+    '**Détails techniques**',
     formatLine('Dépendances', `discord.js ${pkg.dependencies['discord.js']}, undici ${pkg.overrides?.undici || 'non forcé'}`),
     formatLine('Fuseau horaire', BOT_TIMEZONE),
     formatLine('Présences en cache', state.lastStats?.presenceCacheSize ?? 'non détecté'),
@@ -872,13 +872,15 @@ const formatDuration = (startedAt) => {
 };
 
 const helpText = [
-  '**🧭 Aide NeatherBeacon**',
+  '**🧭 Aide rapide - NeatherBeacon**',
+  '',
+  'Alpha gère le serveur, les logs et les stats. Bravo s’occupe de la musique via Muse.',
   '',
   '**Fonctions**',
   '- audit non destructif du serveur cible',
   '- resynchronisation additive des rôles, catégories et salons gérés',
   '- logs des arrivées, départs et mouvements vocaux',
-  '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes et enrichie de KPI joueurs',
+  '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh'])}`,
   `- commandes Pokédex publiques: ${formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon'])}`,
@@ -899,13 +901,13 @@ const buildStartupLogMessage = (startupReport) =>
   [
     '**🟢 NeatherBeacon Alpha est en ligne**',
     '',
-    'Le phare est allumé. J’ai vérifié la structure du serveur sans supprimer l’existant.',
+    'Alpha est revenu en ligne. J’ai relu la structure du serveur sans toucher à l’existant.',
     '',
     '**Synchronisation**',
     formatLine('Résultat', startupReport.summary),
     formatLine('Mode', 'additif et non destructif'),
     '',
-    '**Commandes admin**',
+    '**Raccourcis admin**',
     formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh']),
     '',
     '**Commandes publiques**',
@@ -914,7 +916,7 @@ const buildStartupLogMessage = (startupReport) =>
     '**À savoir**',
     '- Les logs techniques arrivent ici.',
     '- Les arrivées, départs et mouvements vocaux restent dans le canal public prévu.',
-    '- Les Stats se mettent à jour automatiquement.',
+    '- Les Stats tournent automatiquement et restent visibles.',
   ].join('\n');
 
 client.once('clientReady', async () => {
@@ -1081,8 +1083,8 @@ client.on('interactionCreate', async (interaction) => {
 client.on('guildMemberAdd', async (member) => {
   if (member.guild.id !== GUILD_ID) return;
   await assignDefaultMemberRole(member);
-  await sendEventLog(member.guild, formatBotMessage('🎉 Arrivée', [
-    `${member} a rejoint le serveur.`,
+  await sendEventLog(member.guild, formatBotMessage('✨ Nouveau membre', [
+    `${member} vient de rejoindre le serveur.`,
     formatLine('Rôle automatique', DEFAULT_MEMBER_ROLE_NAME),
   ]));
   state.lastMemberEvent = `Arrivée : ${formatMember(member)}`;
@@ -1096,7 +1098,7 @@ client.on('guildMemberAdd', async (member) => {
 client.on('guildMemberRemove', async (member) => {
   if (member.guild.id !== GUILD_ID) return;
   await sendEventLog(member.guild, formatBotMessage('👋 Départ', [
-    `${formatMember(member)} a quitté le serveur.`,
+    `${formatMember(member)} vient de quitter le serveur.`,
   ]));
   state.lastMemberEvent = `Départ : ${formatMember(member)}`;
   updateRuntimeFiles();
@@ -1116,20 +1118,20 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
       formatLine('Membre', formatMember(member)),
       formatLine('Action', `a rejoint ${after}`),
     ]));
-    state.lastVoiceEvent = `${formatMember(member)} -> ${after}`;
+    state.lastVoiceEvent = `${formatMember(member)} a rejoint ${after}`;
   } else if (before && !after) {
     await sendEventLog(oldState.guild, formatBotMessage('🎙️ Vocal', [
       formatLine('Membre', formatMember(member)),
       formatLine('Action', `a quitté ${before}`),
     ]));
-    state.lastVoiceEvent = `${formatMember(member)} <- ${before}`;
+    state.lastVoiceEvent = `${formatMember(member)} a quitté ${before}`;
   } else if (before && after) {
     await sendEventLog(newState.guild, formatBotMessage('🎙️ Vocal', [
       formatLine('Membre', formatMember(member)),
       formatLine('Avant', before),
       formatLine('Après', after),
     ]));
-    state.lastVoiceEvent = `${formatMember(member)}: ${before} -> ${after}`;
+    state.lastVoiceEvent = `${formatMember(member)} a changé de salon: ${before} -> ${after}`;
   }
   updateRuntimeFiles();
 

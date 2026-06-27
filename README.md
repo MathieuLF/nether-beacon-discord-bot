@@ -1,20 +1,16 @@
 # NeatherBeacon
 
-> A small personal Discord experiment built for fun: one admin bot, one Muse music bot, safe server reconciliation, live stats, and public Pokédex commands.
+> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, and public Pokédex commands.
 
-<!--
-Public repository setup:
-Replace OWNER/REPO with the final GitHub repository path before publishing.
-Example: mathieulf/neatherbeacon
--->
+<!-- Public repository slug: MathieuLF/neather-beacon-discord-bot -->
 
 [![Node.js](https://img.shields.io/badge/Node.js-22.x-2f6f43?logo=nodedotjs&logoColor=white)](#)
 [![Docker Desktop](https://img.shields.io/badge/Docker%20Desktop-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
 [![discord.js](https://img.shields.io/badge/discord.js-14.26.4-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-site%20ready-222?logo=githubpages&logoColor=white)](docs/index.html)
-[![Tokei](https://tokei.rs/b1/github/OWNER/REPO?category=code)](https://github.com/OWNER/REPO)
+[![Microsite](https://img.shields.io/badge/Microsite-docs-222?logo=githubpages&logoColor=white)](docs/index.html)
+[![Tokei](https://tokei.rs/b1/github/MathieuLF/neather-beacon-discord-bot?category=code)](https://github.com/MathieuLF/neather-beacon-discord-bot)
 
 ## What it does
 
@@ -30,7 +26,7 @@ The project is designed to be **safe by default**:
 - ambiguous duplicates are reported instead of guessed;
 - runtime state and secrets are kept out of Git.
 
-This is a personal project built for fun, not an official integration.
+This is a self-hosted side project for a private Discord server.
 
 ## Feature map
 
@@ -42,7 +38,7 @@ This is a personal project built for fun, not an official integration.
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon` |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
-| Website | static microsite ready for GitHub Pages in `docs/` |
+| Website | static microsite in `docs/` |
 
 ## Discord commands
 
@@ -137,7 +133,6 @@ Recreatable runtime caches:
 
 Before publishing:
 
-- replace `OWNER/REPO` in README badges;
 - review `.env.example` for placeholder-only values;
 - keep `.env`, `runtime/`, `muse-data/` and Docker volumes private;
 - review the MIT license holder line in `LICENSE`;
@@ -158,7 +153,7 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 
 NeatherBeacon is released under the MIT License. See [LICENSE](LICENSE).
 
-Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon is not affiliated with, endorsed by, sponsored by or officially connected to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
+Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
 
 See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
 

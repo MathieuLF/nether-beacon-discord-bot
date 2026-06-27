@@ -6,7 +6,7 @@ This project is released under the MIT License. See [LICENSE](LICENSE).
 
 NeatherBeacon is an independent community project.
 
-It is a personal project built for fun, not an official integration.
+It is a self-hosted side project, not an official integration.
 
 It is not affiliated with, endorsed by, sponsored by, or officially connected to:
 
@@ -55,4 +55,4 @@ Each third-party component remains subject to its own license, terms, policies, 
 
 ## No warranty
 
-The software is provided as-is under the MIT License. It is intended for self-hosted community use. Server owners are responsible for complying with Discord rules, third-party service terms, API policies, copyright rules, trademark rules, and local laws.
+The software is provided as-is under the MIT License. It is meant for self-hosted community use. Server owners are responsible for complying with Discord rules, third-party service terms, API policies, copyright rules, trademark rules, and local laws.
