@@ -1,6 +1,6 @@
 # NeatherBeacon
 
-> A small personal Discord experiment built for fun: one admin bot, one Muse music bot, safe server reconciliation, live stats, and public Pokédex commands.
+> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, and public Pokédex commands.
 
 <!--
 Public repository setup:
@@ -30,7 +30,7 @@ The project is designed to be **safe by default**:
 - ambiguous duplicates are reported instead of guessed;
 - runtime state and secrets are kept out of Git.
 
-This is a personal project built for fun, not an official integration.
+This is a self-hosted side project for a private Discord server.
 
 ## Feature map
 
@@ -158,7 +158,7 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 
 NeatherBeacon is released under the MIT License. See [LICENSE](LICENSE).
 
-Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon is not affiliated with, endorsed by, sponsored by or officially connected to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
+Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
 
 See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
 

@@ -2,7 +2,7 @@
 
 This document is a practical publication note, not legal advice.
 
-NeatherBeacon is a personal project built for fun, not an official integration.
+NeatherBeacon is a self-hosted side project for a private Discord server.
 
 ## License
 
@@ -15,7 +15,7 @@ See:
 
 ## Non-affiliation
 
-NeatherBeacon is an independent project. It is not affiliated with, endorsed by, sponsored by, or officially connected to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI, or any other third-party brand mentioned in the project.
+NeatherBeacon is an independent project. It has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI, or any other third-party brand mentioned in the project.
 
 ## Trademarks and brands
 

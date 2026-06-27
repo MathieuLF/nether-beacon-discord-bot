@@ -1,6 +1,6 @@
 # Public GitHub Publication Checklist
 
-This project is prepared for a future public GitHub repository, but the live deployment contains local secrets and runtime state that must stay private.
+This repository is being prepared for a public GitHub release, but the live deployment still contains local secrets and runtime state that must stay private.
 
 ## Before creating the public repository
 
