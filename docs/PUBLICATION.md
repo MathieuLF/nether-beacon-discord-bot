@@ -31,7 +31,7 @@ This repository is being prepared for a public GitHub release, but the live depl
 - documentation
 - `LICENSE`
 - `NOTICE.md`
-- static GitHub Pages files under `docs/`
+- static GitHub Pages files under `docs/site/`
 - public-facing images in `assets/` after manual review
 
 ## Legal review before public launch
@@ -63,7 +63,7 @@ Recommended settings:
 
 The microsite entry point is:
 
-- `docs/index.html`
+- `docs/site/index.html`
 
 The file `docs/.nojekyll` is included so GitHub Pages serves static files directly.
 
