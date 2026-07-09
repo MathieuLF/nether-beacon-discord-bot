@@ -1,14 +1,21 @@
 const fs = require('fs');
-const path = require('path');
 const {
   Client,
   ChannelType,
   GatewayIntentBits,
   PermissionFlagsBits,
-  SlashCommandBuilder,
 } = require('discord.js');
 const { config } = require('dotenv');
 const { paths } = require('./lib/config');
+const {
+  PUBLIC_COMMAND_NAMES,
+  commandHash,
+  commandPayload,
+} = require('./lib/commands');
+const {
+  formatCacheStatus,
+  formatDiagnostics,
+} = require('./lib/diagnostics');
 const {
   plan,
   auditGuild,
@@ -18,6 +25,13 @@ const {
   findManagedLogChannelId,
 } = require('./lib/reconcile');
 const {
+  createAdminState,
+  readJson,
+  updateRuntimeFiles: writeRuntimeFiles,
+} = require('./lib/runtime-state');
+const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
+const {
+  autocompletePokedex,
   formatAbilitySummary,
   formatMoveSummary,
   formatPokemonSummary,
@@ -39,6 +53,11 @@ if (!BOT_TOKEN || !GUILD_ID) {
 
 fs.mkdirSync(paths.runtimeDir, { recursive: true });
 
+const readPositiveInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 const P = PermissionFlagsBits;
 const ADMIN_ROLE_NAME = plan.adminRoleName;
 const DEFAULT_MEMBER_ROLE_NAME = plan.defaultMemberRoleName;
@@ -47,7 +66,11 @@ const STATS_CATEGORY_NAME = 'Stats';
 const STATS_CATEGORY_LEGACY_NAMES = ['Stats serveur'];
 const STATS_LIVE_CHANNEL_NAME = '📊・stats-live';
 const STATS_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const STATS_VOICE_REFRESH_INTERVAL_MS = STATS_REFRESH_INTERVAL_MS;
+const STATS_VOICE_REFRESH_INTERVAL_MS = readPositiveInteger(
+  process.env.BOT_STATS_VOICE_REFRESH_INTERVAL_MS,
+  STATS_REFRESH_INTERVAL_MS,
+);
+const STATS_EVENT_DEBOUNCE_MS = readPositiveInteger(process.env.BOT_STATS_EVENT_DEBOUNCE_MS, 15000);
 const STATS_MEMBER_FETCH_TIMEOUT_MS = 10000;
 const STATS_CHANNEL_PREFIXES = {
   date: '📅・',
@@ -61,7 +84,6 @@ const STATS_CHANNEL_PREFIXES = {
   channels: '#️⃣・',
   roles: '🎭・',
 };
-const PUBLIC_COMMAND_NAMES = new Set(['pokemon', 'weakness', 'move', 'ability', 'type', 'random-pokemon']);
 const PUBLIC_COMMAND_COOLDOWN_MS = 5000;
 const publicCommandCooldowns = new Map();
 
@@ -122,36 +144,10 @@ const ensureManagedStatsOverwrites = async (channel, guild, reason) => {
   await tryDiscordWrite(channel.permissionOverwrites.set(getStatsPermissionOverwrites(guild), reason), reason);
 };
 
-const state = {
+const state = createAdminState({
   version: pkg.version,
   guildId: GUILD_ID,
-  guildName: null,
-  startedAt: new Date().toISOString(),
-  readyAt: null,
-  eventChannelId: null,
-  logChannelId: null,
-  commandsRegisteredAt: null,
-  lastAudit: null,
-  lastSync: null,
-  lastStats: null,
-  lastMemberEvent: null,
-  lastVoiceEvent: null,
-  lastError: null,
-  healthy: false,
-  activeTask: null,
-};
-
-const writeJson = (targetPath, payload) => {
-  fs.writeFileSync(targetPath, JSON.stringify(payload, null, 2), 'utf8');
-};
-
-const readJson = (targetPath) => {
-  try {
-    return JSON.parse(fs.readFileSync(targetPath, 'utf8'));
-  } catch (error) {
-    return null;
-  }
-};
+});
 
 const withTimeout = async (promise, timeoutMs, label) => {
   let timer = null;
@@ -176,111 +172,12 @@ const tryDiscordWrite = async (promise, label) => {
   }
 };
 
-const updateRuntimeFiles = () => {
-  writeJson(paths.adminStatePath, state);
-  writeJson(paths.adminHeartbeatPath, {
-    healthy: state.healthy,
-    activeTask: state.activeTask,
-    guildId: state.guildId,
-    eventChannelId: state.eventChannelId,
-    logChannelId: state.logChannelId,
-    readyAt: state.readyAt,
-    timestamp: new Date().toISOString(),
-    version: state.version,
-  });
-};
+const updateRuntimeFiles = () => writeRuntimeFiles(state);
 
 const startHeartbeat = () => {
   updateRuntimeFiles();
   setInterval(updateRuntimeFiles, 15000).unref();
 };
-
-const commandPayload = [
-  new SlashCommandBuilder()
-    .setName('status')
-    .setDescription('État du conteneur, du bot admin et de Muse.')
-    .setDMPermission(false)
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder()
-    .setName('audit')
-    .setDescription("Compare la configuration voulue à l'état actuel sans rien modifier.")
-    .setDMPermission(false)
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder()
-    .setName('resync')
-    .setDescription('Applique la configuration additive gérée par le bot.')
-    .setDMPermission(false)
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder()
-    .setName('help')
-    .setDescription('Résume les fonctions, prérequis et limites du bot.')
-    .setDMPermission(false)
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder()
-    .setName('welcome-preview')
-    .setDescription("Prévisualise le message d'accueil sans attendre un nouveau membre.")
-    .setDMPermission(false)
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder()
-    .setName('stats-refresh')
-    .setDescription('Force une mise à jour immédiate des salons vocaux Stats.')
-    .setDMPermission(false)
-    .setDefaultMemberPermissions(P.Administrator),
-  new SlashCommandBuilder()
-    .setName('pokemon')
-    .setDescription('Look up a Pokémon by English name or National Pokédex number.')
-    .addStringOption((option) =>
-      option
-        .setName('name')
-        .setDescription('English Pokémon name or ID, for example charizard or 6.')
-        .setRequired(true),
-    )
-    .setDMPermission(false),
-  new SlashCommandBuilder()
-    .setName('weakness')
-    .setDescription('Show type weaknesses, resistances and immunities for a Pokémon.')
-    .addStringOption((option) =>
-      option
-        .setName('pokemon')
-        .setDescription('English Pokémon name or ID.')
-        .setRequired(true),
-    )
-    .setDMPermission(false),
-  new SlashCommandBuilder()
-    .setName('move')
-    .setDescription('Look up a Pokémon move.')
-    .addStringOption((option) =>
-      option
-        .setName('name')
-        .setDescription('Move name, for example flamethrower or thunderbolt.')
-        .setRequired(true),
-    )
-    .setDMPermission(false),
-  new SlashCommandBuilder()
-    .setName('ability')
-    .setDescription('Look up a Pokémon ability.')
-    .addStringOption((option) =>
-      option
-        .setName('name')
-        .setDescription('Ability name, for example intimidate or levitate.')
-        .setRequired(true),
-    )
-    .setDMPermission(false),
-  new SlashCommandBuilder()
-    .setName('type')
-    .setDescription('Show offensive and defensive matchups for a Pokémon type.')
-    .addStringOption((option) =>
-      option
-        .setName('name')
-        .setDescription('Type name, for example fire, water or fairy.')
-        .setRequired(true),
-    )
-    .setDMPermission(false),
-  new SlashCommandBuilder()
-    .setName('random-pokemon')
-    .setDescription('Pull a random Pokémon from the Pokédex.')
-    .setDMPermission(false),
-].map((command) => command.toJSON());
 
 const client = new Client({
   intents: [
@@ -299,6 +196,13 @@ const hasAdminAccess = (interaction) => {
 
 const getPublicCommandCooldown = (userId) => {
   const now = Date.now();
+
+  for (const [cachedUserId, previousAt] of publicCommandCooldowns.entries()) {
+    if (now - previousAt > PUBLIC_COMMAND_COOLDOWN_MS) {
+      publicCommandCooldowns.delete(cachedUserId);
+    }
+  }
+
   const previous = publicCommandCooldowns.get(userId) || 0;
   const remaining = PUBLIC_COMMAND_COOLDOWN_MS - (now - previous);
   if (remaining > 0) return Math.ceil(remaining / 1000);
@@ -426,6 +330,14 @@ const registerSlashCommands = async (guild) => {
   state.commandsRegisteredAt = new Date().toISOString();
   updateRuntimeFiles();
 };
+
+const knownSecretValues = () => [
+  BOT_TOKEN,
+  process.env.MUSE_DISCORD_TOKEN,
+  process.env.MUSE_YOUTUBE_API_KEY,
+  process.env.MUSE_SPOTIFY_CLIENT_ID,
+  process.env.MUSE_SPOTIFY_CLIENT_SECRET,
+].filter(Boolean);
 
 const markTask = (taskName) => {
   state.activeTask = taskName;
@@ -732,6 +644,11 @@ const refreshStatsDisplaySafe = async (guild, origin) => {
   }
 };
 
+const statsEventDebouncer = createStatsRefreshDebouncer(STATS_EVENT_DEBOUNCE_MS, refreshStatsDisplaySafe);
+const queueStatsEventRefresh = (guild, origin) => {
+  statsEventDebouncer.schedule(guild, origin);
+};
+
 const startStatsScheduler = () => {
   if (statsRefreshTimer || statsRefreshBootstrapTimer) {
     return;
@@ -796,7 +713,10 @@ const summarizeStatus = (guild) => {
     formatLine('Vocal', state.lastVoiceEvent || 'aucun'),
     '',
     '**Détails techniques**',
-    formatLine('Dépendances', `discord.js ${pkg.dependencies['discord.js']}, undici ${pkg.overrides?.undici || 'non forcé'}`),
+    formatLine('Dépendances', `discord.js ${pkg.dependencies['discord.js']}, dotenv ${pkg.dependencies.dotenv}, undici ${pkg.overrides?.undici || 'non forcé'}`),
+    formatLine('Hash commandes', commandHash),
+    formatLine('Debounce Stats', `${STATS_EVENT_DEBOUNCE_MS}ms`),
+    formatLine('Refresh Stats vocal', `${STATS_VOICE_REFRESH_INTERVAL_MS}ms`),
     formatLine('Fuseau horaire', BOT_TIMEZONE),
     formatLine('Présences en cache', state.lastStats?.presenceCacheSize ?? 'non détecté'),
     formatLine('Dernière erreur', state.lastError || 'aucune'),
@@ -882,7 +802,7 @@ const helpText = [
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
   '- Muse auto-hébergé dans le même conteneur',
-  `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh'])}`,
+  `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
   `- commandes Pokédex publiques: ${formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon'])}`,
   '',
   '**Prérequis**',
@@ -908,7 +828,7 @@ const buildStartupLogMessage = (startupReport) =>
     formatLine('Mode', 'additif et non destructif'),
     '',
     '**Raccourcis admin**',
-    formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh']),
+    formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status']),
     '',
     '**Commandes publiques**',
     formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon']),
@@ -951,6 +871,23 @@ client.once('clientReady', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    if (interaction.guildId !== GUILD_ID || !PUBLIC_COMMAND_NAMES.has(interaction.commandName)) {
+      await interaction.respond([]).catch(() => undefined);
+      return;
+    }
+
+    try {
+      const focused = interaction.options.getFocused(true);
+      const choices = await autocompletePokedex(interaction.commandName, focused.value);
+      await interaction.respond(choices);
+    } catch (error) {
+      console.error(`[autocomplete:${interaction.commandName}] failed`, error);
+      await interaction.respond([]).catch(() => undefined);
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
   if (interaction.guildId !== GUILD_ID) {
     await interaction.reply({
@@ -1022,6 +959,39 @@ client.on('interactionCreate', async (interaction) => {
         content: formatBotMessage("👀 Prévisualisation de l'accueil", [
           buildWelcomeMessage(interaction.member),
         ]),
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (interaction.commandName === 'diag') {
+      const supervisor = readJson(paths.supervisorStatePath);
+      await interaction.reply({
+        content: formatDiagnostics({
+          state,
+          guild,
+          supervisor,
+          pingMs: client.ws.ping,
+          commandHash,
+          commandCount: commandPayload.length,
+          dependencies: {
+            discordJs: pkg.dependencies['discord.js'],
+            dotenv: pkg.dependencies.dotenv,
+          },
+          timeZone: BOT_TIMEZONE,
+          secrets: knownSecretValues(),
+        }),
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (interaction.commandName === 'cache-status') {
+      await interaction.reply({
+        content: formatCacheStatus({
+          runtimeDir: paths.runtimeDir,
+          timeZone: BOT_TIMEZONE,
+        }),
         ephemeral: true,
       });
       return;
@@ -1135,7 +1105,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
   }
   updateRuntimeFiles();
 
-  await refreshStatsDisplaySafe(newState.guild, 'voice-state');
+  queueStatsEventRefresh(newState.guild, 'voice-state');
 });
 
 client.on('presenceUpdate', async (oldPresence, newPresence) => {
@@ -1146,7 +1116,7 @@ client.on('presenceUpdate', async (oldPresence, newPresence) => {
   const after = newPresence?.status || 'offline';
   if (before === after) return;
 
-  await refreshStatsDisplaySafe(guild, 'presence-update');
+  queueStatsEventRefresh(guild, 'presence-update');
 });
 
 process.on('SIGTERM', () => {
