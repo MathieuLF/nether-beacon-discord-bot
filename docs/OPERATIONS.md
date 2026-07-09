@@ -51,6 +51,8 @@ Nom du stack: `NeatherBeacon`
   - `/help`
   - `/welcome-preview`
   - `/stats-refresh`
+  - `/diag`
+  - `/cache-status`
 - Muse auto-heberge avec persistance de donnees
 
 ## Prerequis
@@ -122,6 +124,8 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
 - `/resync`
 - `/welcome-preview`
 - `/stats-refresh`
+- `/diag`
+- `/cache-status`
 
 Le bot ne supprime pas les canaux, roles ou permissions deja presents. En cas de doublon ou d ambiguite, il signale le conflit et s arrete sur ce point au lieu de deviner.
 Le fichier `runtime/managed-ids.json` est le registre local des objets Discord deja reconnus. Il est alimente par `npm run capture:ids` et par les `resync` futurs. Si un salon gere est renomme manuellement, le bot peut encore le retrouver par ID et le corriger au lieu d en creer un nouveau.
@@ -130,6 +134,8 @@ La baseline serveur vise `MembersWithoutRoles` pour le filtre de contenu explici
 Si un role `Admin` existe deja sans permission `Administrator`, le bot le signale en conflit et ne le promeut pas silencieusement.
 Les horodatages exposes par le bot admin sont formates pour `America/Toronto`.
 La categorie `Stats` est geree au runtime par le bot admin, reste visible pour tous, impossible a rejoindre pour les membres ordinaires, est repoussee a la fin des categories, et affiche des KPI joueurs dans des salons vocaux mis a jour toutes les 5 minutes.
+Les evenements de presence et de vocal sont debounces par defaut pendant 15 secondes avant de rafraichir les Stats, afin d eviter des rafales d ecritures Discord. La commande `/stats-refresh` reste immediate.
+Les commandes `/diag` et `/cache-status` sont ephemeres, reservees admin, et ne publient ni secrets ni contenu de fichiers.
 
 ## Update
 
@@ -155,6 +161,15 @@ La categorie `Stats` est geree au runtime par le bot admin, reste visible pour t
 - `npm run validate:config`: valide le schema et la coherence du plan serveur
 - `npm run test`: teste la capture des IDs et la detection de doublons probables
 - `npm run capture:ids`: lit Discord via REST et met a jour `runtime/managed-ids.json` sans modifier le serveur
+
+## Reglages Optionnels
+
+Ces variables ont des valeurs par defaut dans `.env.example`:
+
+- `BOT_STATS_EVENT_DEBOUNCE_MS=15000`: delai de regroupement des evenements presence/vocal avant refresh Stats
+- `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000`: intervalle minimal entre deux renommages des salons vocaux Stats
+- `BOT_POKEAPI_CACHE_TTL_DAYS=30`: duree de validite des JSON PokéAPI
+- `BOT_POKEAPI_MAX_ASSET_BYTES=5242880`: taille maximale d un asset Pokédex telecharge
 
 ## Build Sans Redemarrage
 

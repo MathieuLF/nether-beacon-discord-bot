@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats and Pokédex commands.">
+    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, diagnostics and Pokédex commands.">
     <meta name="theme-color" content="#ff7a2f">
     <title>NeatherBeacon - Discord bot stack</title>
     <link rel="stylesheet" href="assets/site.css">
@@ -27,7 +27,7 @@
         <div class="hero-grid">
           <div>
             <div class="eyebrow">Self-hosted Discord stack</div>
-            <h1>One beacon for gamers, music, stats and Pokédex lookups.</h1>
+            <h1>One beacon for gamers, music, stats and safe diagnostics.</h1>
             <p class="lede">
               NeatherBeacon keeps Alpha on server operations and public commands, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
             </p>
@@ -41,8 +41,9 @@
             <pre class="terminal"><span class="cursor">●</span> Alpha online
 mode        additive, non-destructive
 music       Muse 2.11.5
-stats       voice KPIs every 5 min
-pokedex     cached JSON + artwork
+stats       debounced voice KPIs
+pokedex     autocomplete + cache
+diagnostics ephemeral, no secrets
 public URL  not required</pre>
           </aside>
         </div>
@@ -67,7 +68,11 @@ public URL  not required</pre>
             </article>
             <article class="card">
               <h3>Public fun commands</h3>
-              <p>Pokédex commands use PokéAPI with local caching for JSON responses, evolution chains and Pokémon artwork.</p>
+              <p>Pokédex commands use autocomplete, local JSON caching, request deduplication and cached Pokémon artwork.</p>
+            </article>
+            <article class="card">
+              <h3>Safe diagnostics</h3>
+              <p>Admin-only diagnostics expose runtime health, command hashes and cache metadata without printing secrets or file contents.</p>
             </article>
           </div>
         </div>
@@ -76,15 +81,19 @@ public URL  not required</pre>
       <section class="section" id="commands">
         <div class="shell">
           <h2>Commands</h2>
-          <p class="section-intro">Admin commands stay locked down. Pokédex commands are public and rate-limited.</p>
+          <p class="section-intro">Admin commands stay locked down. Pokédex commands are public, rate-limited and autocomplete-enabled.</p>
           <div class="commands">
             <div class="command"><code>/status</code><br>Show Alpha, Bravo, runtime and cache status.</div>
             <div class="command"><code>/audit</code><br>Compare desired server structure without changing anything.</div>
             <div class="command"><code>/resync</code><br>Apply additive managed Discord changes.</div>
             <div class="command"><code>/stats-refresh</code><br>Force the Stats voice channels to refresh.</div>
-            <div class="command"><code>/pokemon name:charizard</code><br>Return a cached Pokédex card with artwork.</div>
+            <div class="command"><code>/diag</code><br>Show safe Alpha, Bravo, stats and command diagnostics.</div>
+            <div class="command"><code>/cache-status</code><br>Report local cache size and age without file contents.</div>
+            <div class="command"><code>/pokemon name:charizard</code><br>Return an autocomplete-backed Pokédex card with artwork.</div>
             <div class="command"><code>/weakness pokemon:charizard</code><br>Show weaknesses, resistances and immunities.</div>
             <div class="command"><code>/move name:flamethrower</code><br>Look up a move.</div>
+            <div class="command"><code>/ability name:intimidate</code><br>Look up an ability and sample Pokémon.</div>
+            <div class="command"><code>/type name:fire</code><br>Show offensive and defensive type matchups.</div>
             <div class="command"><code>/random-pokemon</code><br>Pull a random Pokémon.</div>
           </div>
         </div>

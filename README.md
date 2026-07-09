@@ -33,9 +33,9 @@ This is a self-hosted side project for a private Discord server.
 | --- | --- |
 | Server management | `/audit`, `/resync`, managed roles/channels/categories, ID registry |
 | Logs | admin logs, public arrivals/departures, voice join/leave/move tracking |
-| Stats | locked public voice channels updated every 5 minutes |
+| Stats | locked public voice channels updated every 5 minutes, with event debounce |
 | Music | Muse in the same container, persistent Docker volume |
-| Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon` |
+| Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
 
@@ -49,6 +49,8 @@ This is a self-hosted side project for a private Discord server.
 - `/help` - compact help.
 - `/welcome-preview` - preview the welcome message.
 - `/stats-refresh` - force Stats voice channels to refresh now.
+- `/diag` - safe runtime diagnostic for Alpha, Bravo, command hash and recent stats.
+- `/cache-status` - local runtime/Pokédex cache sizes and ages without file contents or secrets.
 
 ### Public Pokédex
 
@@ -129,6 +131,15 @@ Recreatable runtime caches:
 - `runtime/pokedex-cache`
 - `runtime/admin-state.json`
 - `runtime/managed-ids.json`
+
+## Optional runtime tuning
+
+Defaults are documented in `.env.example`:
+
+- `BOT_STATS_EVENT_DEBOUNCE_MS=15000` groups noisy presence/voice events before refreshing Stats.
+- `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000` limits Stats voice-channel renames.
+- `BOT_POKEAPI_CACHE_TTL_DAYS=30` controls JSON cache age.
+- `BOT_POKEAPI_MAX_ASSET_BYTES=5242880` rejects oversized Pokédex artwork downloads.
 
 ## Public GitHub readiness
 
