@@ -18,6 +18,7 @@ It is not affiliated with, endorsed by, sponsored by, or officially connected to
 - Creatures Inc.
 - GAME FREAK inc.
 - The Pokémon Company
+- Pocketpair, Inc. or Palworld rightsholders
 - Spotify AB
 - Google LLC, YouTube, or related services
 - Node.js contributors or the OpenJS Foundation
@@ -30,7 +31,7 @@ All trademarks, service marks, product names, company names, logos, character na
 
 Pokémon, Pokémon character names, Pokémon artwork, Pokédex references, and related assets are owned by their respective rightsholders. This project does not claim ownership over them.
 
-Discord, Docker, GitHub, Node.js, YouTube, Spotify, Muse, PokéAPI, and other third-party names are used for identification and interoperability only.
+Discord, Docker, GitHub, Node.js, YouTube, Spotify, Muse, PokéAPI, Palworld, and other third-party names are used for identification and interoperability only.
 
 ## PokéAPI and Pokémon assets
 
@@ -48,6 +49,7 @@ This project depends on external software and services, including:
 - `discord.js` for Discord API integration
 - upstream Muse for music playback
 - PokéAPI for public Pokémon data
+- Palworld REST API for optional private-server status and announcement interoperability
 - Docker Desktop / Docker Engine for local container runtime
 - Node.js for the Alpha runtime
 

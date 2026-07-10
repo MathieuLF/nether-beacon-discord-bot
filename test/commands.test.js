@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const { PermissionFlagsBits } = require('discord.js');
 const {
+  POKEDEX_COMMAND_NAMES,
+  PUBLIC_COMMAND_NAMES,
+  STAFF_COMMAND_NAMES,
   commandHash,
   commandPayload,
   commandPayloadHash,
@@ -24,4 +28,20 @@ test('Pokédex slash command options expose autocomplete', () => {
     assert.ok(command, `missing command ${commandName}`);
     assert.equal(command.options[0].autocomplete, true, `${commandName} should autocomplete`);
   }
+});
+
+test('Palworld slash commands expose public metrics and staff announcement', () => {
+  assert.ok(PUBLIC_COMMAND_NAMES.has('metrics-palworld'));
+  assert.ok(STAFF_COMMAND_NAMES.has('announce-palworld'));
+  assert.ok(!POKEDEX_COMMAND_NAMES.has('metrics-palworld'));
+
+  const metrics = commandPayload.find((entry) => entry.name === 'metrics-palworld');
+  assert.ok(metrics, 'missing metrics-palworld command');
+  assert.equal(metrics.default_member_permissions, undefined);
+
+  const announce = commandPayload.find((entry) => entry.name === 'announce-palworld');
+  assert.ok(announce, 'missing announce-palworld command');
+  assert.equal(announce.default_member_permissions, String(PermissionFlagsBits.ManageMessages));
+  assert.equal(announce.options[0].name, 'message');
+  assert.equal(announce.options[0].max_length, 500);
 });

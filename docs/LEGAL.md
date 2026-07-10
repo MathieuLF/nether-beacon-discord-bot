@@ -15,7 +15,7 @@ See:
 
 ## Non-affiliation
 
-NeatherBeacon is an independent project. It has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI, or any other third-party brand mentioned in the project.
+NeatherBeacon is an independent project. It has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI, or any other third-party brand mentioned in the project.
 
 ## Trademarks and brands
 
@@ -37,6 +37,14 @@ runtime/pokedex-cache
 
 That folder is ignored and must not be published unless the publisher has separately confirmed the right to distribute its contents.
 
+## Palworld interoperability
+
+Palworld features use the server owner's private Palworld REST API configuration.
+
+NeatherBeacon does not own Palworld, Palworld names, game data, server APIs, logos, or related intellectual property.
+
+The bot must not expose the Palworld REST API directly to the public Internet.
+
 ## Public repository boundary
 
 Safe to publish:
@@ -57,3 +65,4 @@ Do not publish:
 - downloaded PokéAPI assets
 - Muse data volume exports
 - private Discord server data
+- private Palworld REST credentials or player-sensitive data
