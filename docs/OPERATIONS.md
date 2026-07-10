@@ -145,6 +145,7 @@ Quand `BOT_UPTIME_KUMA_STATUS_PAGE_URL` pointe vers une page Uptime Kuma publiee
 - les transitions `actif`, `inactif` et `maintenance` sont annoncees seulement quand l etat change
 - les maintenances et incidents publics Uptime Kuma sont annonces une fois par revision
 - la fin d une maintenance ou d un incident est annoncee une fois quand l evenement disparait de la page publique
+- si Uptime Kuma lui-meme est indisponible, la panne et le retour sont annonces seulement dans le salon securise des logs
 - l etat anti-spam est conserve dans `runtime/uptime-kuma-status.json`
 
 ## Update

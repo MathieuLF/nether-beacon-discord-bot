@@ -35,6 +35,7 @@ const {
   fetchUptimeKumaSnapshot,
   loadUptimeKumaState,
   planUptimeKumaAnnouncements,
+  planUptimeKumaFetchFailure,
   saveUptimeKumaState,
 } = require('./lib/uptime-kuma-status');
 const {
@@ -327,23 +328,49 @@ const pollUptimeKumaStatus = async (guild, origin) => {
     };
     updateRuntimeFiles();
 
-    if (!planned.messages.length) {
+    if (!planned.messages.length && !planned.logMessages.length) {
       saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
       return;
     }
 
-    const channelId = getUptimeKumaStatusChannelId(guild);
-    if (!channelId) {
-      throw new Error(`managed channel ${UPTIME_KUMA_STATUS_CHANNEL_NAME} not found`);
+    if (planned.messages.length) {
+      const channelId = getUptimeKumaStatusChannelId(guild);
+      if (!channelId) {
+        throw new Error(`managed channel ${UPTIME_KUMA_STATUS_CHANNEL_NAME} not found`);
+      }
+
+      for (const message of planned.messages) {
+        await sendMessageToChannel(guild, channelId, message);
+      }
     }
 
-    for (const message of planned.messages) {
-      await sendMessageToChannel(guild, channelId, message);
+    for (const message of planned.logMessages) {
+      await sendLog(guild, message);
     }
 
     saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
   } catch (error) {
-    noteRuntimeError(`uptime-kuma:${origin}`, error);
+    const previousState = loadUptimeKumaState(UPTIME_KUMA_STATE_PATH);
+    const planned = planUptimeKumaFetchFailure({
+      error,
+      previousState,
+      statusPageUrl: UPTIME_KUMA_STATUS_PAGE_URL,
+    });
+
+    state.lastUptimeKuma = {
+      at: planned.state.updatedAt,
+      status: 'kuma-unreachable',
+      title: 'Uptime Kuma',
+      events: 0,
+    };
+    state.lastError = `uptime-kuma:${origin}: ${error.message}`;
+    updateRuntimeFiles();
+
+    for (const message of planned.logMessages) {
+      await sendLog(guild, message);
+    }
+
+    saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
   } finally {
     uptimeKumaPollInFlight = false;
   }

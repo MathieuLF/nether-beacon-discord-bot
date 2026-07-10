@@ -76,6 +76,7 @@ When `BOT_UPTIME_KUMA_STATUS_PAGE_URL` points to a published Uptime Kuma status 
 - `up`, `down` and `maintenance` states are announced only when the status changes.
 - Uptime Kuma maintenances and incidents are announced once per public revision.
 - Completed maintenances and incidents are announced once when they disappear from the public page.
+- If Uptime Kuma itself is unreachable, Alpha reports that outage and recovery only in the secure logs channel.
 - Anti-spam state is stored in `runtime/uptime-kuma-status.json`, so bot restarts do not replay the same notice.
 
 ## Repository layout
