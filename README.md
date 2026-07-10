@@ -39,6 +39,7 @@ This is a self-hosted side project for a private Discord server.
 | Stats | locked public voice channels updated every 5 minutes, with event debounce |
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
+| Palworld status | Uptime Kuma status-page polling, one-shot up/down messages and maintenance/incident notices |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
 
@@ -67,6 +68,15 @@ Use English Pokémon names.
 - `/random-pokemon`
 
 Pokédex JSON and artwork are cached under `runtime/pokedex-cache`.
+
+## Palworld status alerts
+
+When `BOT_UPTIME_KUMA_STATUS_PAGE_URL` points to a published Uptime Kuma status page, Alpha polls the public status-page API and posts updates in the configured Palworld channel.
+
+- `up`, `down` and `maintenance` states are announced only when the status changes.
+- Uptime Kuma maintenances and incidents are announced once per public revision.
+- Completed maintenances and incidents are announced once when they disappear from the public page.
+- Anti-spam state is stored in `runtime/uptime-kuma-status.json`, so bot restarts do not replay the same notice.
 
 ## Repository layout
 
@@ -134,6 +144,7 @@ Recreatable runtime caches:
 - `runtime/pokedex-cache`
 - `runtime/admin-state.json`
 - `runtime/managed-ids.json`
+- `runtime/uptime-kuma-status.json`
 
 ## Optional runtime tuning
 
@@ -143,6 +154,10 @@ Defaults are documented in `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000` limits Stats voice-channel renames.
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30` controls JSON cache age.
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880` rejects oversized Pokédex artwork downloads.
+- `BOT_UPTIME_KUMA_STATUS_PAGE_URL=` enables Palworld status polling when set to a published Uptime Kuma status page.
+- `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME=🐾・palworld` controls where up/down and maintenance notices are posted.
+- `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000` controls how often Alpha checks the public status page API.
+- `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000` limits each Uptime Kuma HTTP request.
 
 ## Public GitHub readiness
 

@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const {
   Client,
   ChannelType,
@@ -30,6 +31,12 @@ const {
   updateRuntimeFiles: writeRuntimeFiles,
 } = require('./lib/runtime-state');
 const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
+const {
+  fetchUptimeKumaSnapshot,
+  loadUptimeKumaState,
+  planUptimeKumaAnnouncements,
+  saveUptimeKumaState,
+} = require('./lib/uptime-kuma-status');
 const {
   autocompletePokedex,
   formatAbilitySummary,
@@ -72,6 +79,11 @@ const STATS_VOICE_REFRESH_INTERVAL_MS = readPositiveInteger(
 );
 const STATS_EVENT_DEBOUNCE_MS = readPositiveInteger(process.env.BOT_STATS_EVENT_DEBOUNCE_MS, 15000);
 const STATS_MEMBER_FETCH_TIMEOUT_MS = 10000;
+const UPTIME_KUMA_STATUS_PAGE_URL = process.env.BOT_UPTIME_KUMA_STATUS_PAGE_URL?.trim() || '';
+const UPTIME_KUMA_STATUS_CHANNEL_NAME = process.env.BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME?.trim() || '🐾・palworld';
+const UPTIME_KUMA_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_POLL_INTERVAL_MS, 60000);
+const UPTIME_KUMA_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS, 10000);
+const UPTIME_KUMA_STATE_PATH = path.join(paths.runtimeDir, 'uptime-kuma-status.json');
 const STATS_CHANNEL_PREFIXES = {
   date: '📅・',
   online: '🟢・',
@@ -277,6 +289,7 @@ const refreshGuild = async () => {
 const getLogChannelId = (guild) => state.logChannelId || findManagedLogChannelId(guild);
 const getEventChannelId = (guild) => state.eventChannelId || findManagedChannelIdByName(guild, plan.eventChannelName);
 const getWelcomeChannelId = (guild) => findManagedChannelIdByName(guild, WELCOME_CHANNEL_NAME);
+const getUptimeKumaStatusChannelId = (guild) => findManagedChannelIdByName(guild, UPTIME_KUMA_STATUS_CHANNEL_NAME);
 
 const sendMessageToChannel = async (guild, channelId, message) => {
   if (!channelId) return;
@@ -288,6 +301,70 @@ const sendMessageToChannel = async (guild, channelId, message) => {
 
 const sendLog = async (guild, message) => sendMessageToChannel(guild, getLogChannelId(guild), message);
 const sendEventLog = async (guild, message) => sendMessageToChannel(guild, getEventChannelId(guild), message);
+
+let uptimeKumaPollTimer = null;
+let uptimeKumaBootstrapTimer = null;
+let uptimeKumaPollInFlight = false;
+
+const pollUptimeKumaStatus = async (guild, origin) => {
+  if (!UPTIME_KUMA_STATUS_PAGE_URL || uptimeKumaPollInFlight) return;
+
+  uptimeKumaPollInFlight = true;
+
+  try {
+    const snapshot = await fetchUptimeKumaSnapshot({
+      statusPageUrl: UPTIME_KUMA_STATUS_PAGE_URL,
+      timeoutMs: UPTIME_KUMA_FETCH_TIMEOUT_MS,
+    });
+    const previousState = loadUptimeKumaState(UPTIME_KUMA_STATE_PATH);
+    const planned = planUptimeKumaAnnouncements(snapshot, previousState);
+
+    state.lastUptimeKuma = {
+      at: snapshot.checkedAt,
+      status: snapshot.overallStatus,
+      title: snapshot.title,
+      events: snapshot.events.length,
+    };
+    updateRuntimeFiles();
+
+    if (!planned.messages.length) {
+      saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
+      return;
+    }
+
+    const channelId = getUptimeKumaStatusChannelId(guild);
+    if (!channelId) {
+      throw new Error(`managed channel ${UPTIME_KUMA_STATUS_CHANNEL_NAME} not found`);
+    }
+
+    for (const message of planned.messages) {
+      await sendMessageToChannel(guild, channelId, message);
+    }
+
+    saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
+  } catch (error) {
+    noteRuntimeError(`uptime-kuma:${origin}`, error);
+  } finally {
+    uptimeKumaPollInFlight = false;
+  }
+};
+
+const startUptimeKumaScheduler = (guild) => {
+  if (!UPTIME_KUMA_STATUS_PAGE_URL || uptimeKumaPollTimer || uptimeKumaBootstrapTimer) return;
+
+  uptimeKumaBootstrapTimer = setTimeout(async () => {
+    uptimeKumaBootstrapTimer = null;
+    await pollUptimeKumaStatus(guild, 'startup');
+
+    uptimeKumaPollTimer = setInterval(async () => {
+      const cachedGuild = client.guilds.cache.get(GUILD_ID);
+      if (cachedGuild) await pollUptimeKumaStatus(cachedGuild, 'interval');
+    }, UPTIME_KUMA_POLL_INTERVAL_MS);
+    uptimeKumaPollTimer.unref();
+  }, 10000);
+  uptimeKumaBootstrapTimer.unref();
+};
+
 const buildWelcomeMessage = (memberOrMention) =>
   formatBotMessage(`👋 Bienvenue ${memberOrMention} dans Gaymers`, [
     'Pose tes affaires, regarde les salons, et lance une game quand tu veux.',
@@ -709,6 +786,7 @@ const summarizeStatus = (guild) => {
     formatLine('Resync', formatTimestamp(state.lastSync?.at)),
     formatLine('Audit', formatTimestamp(state.lastAudit?.at)),
     formatLine('Stats', formatTimestamp(state.lastStats?.at)),
+    formatLine('Palworld', UPTIME_KUMA_STATUS_PAGE_URL ? `${state.lastUptimeKuma?.status || 'en attente'} (${formatTimestamp(state.lastUptimeKuma?.at)})` : 'désactivé'),
     formatLine('Membre', state.lastMemberEvent || 'aucun'),
     formatLine('Vocal', state.lastVoiceEvent || 'aucun'),
     '',
@@ -855,6 +933,7 @@ client.once('clientReady', async () => {
 
     await refreshStatsDisplaySafe(guild, 'startup');
     startStatsScheduler();
+    startUptimeKumaScheduler(guild);
 
     await sendLog(
       guild,

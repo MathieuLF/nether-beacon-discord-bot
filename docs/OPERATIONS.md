@@ -43,6 +43,7 @@ Nom du stack: `NeatherBeacon`
   - `/type`
   - `/random-pokemon`
 - `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite mis en cache, types, abilities, stats, species, labels, egg groups et evolution quand disponible
+- surveillance de la page Uptime Kuma Palworld avec annonce unique des transitions actif/inactif et des maintenances/incidents publics
 - logs entree/sortie/deplacement vocal
 - commandes slash admin:
   - `/status`
@@ -137,6 +138,15 @@ La categorie `Stats` est geree au runtime par le bot admin, reste visible pour t
 Les evenements de presence et de vocal sont debounces par defaut pendant 15 secondes avant de rafraichir les Stats, afin d eviter des rafales d ecritures Discord. La commande `/stats-refresh` reste immediate.
 Les commandes `/diag` et `/cache-status` sont ephemeres, reservees admin, et ne publient ni secrets ni contenu de fichiers.
 
+## Alertes Palworld Via Uptime Kuma
+
+Quand `BOT_UPTIME_KUMA_STATUS_PAGE_URL` pointe vers une page Uptime Kuma publiee, Alpha lit l API publique de cette page et annonce les changements dans le salon configure par `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME`.
+
+- les transitions `actif`, `inactif` et `maintenance` sont annoncees seulement quand l etat change
+- les maintenances et incidents publics Uptime Kuma sont annonces une fois par revision
+- la fin d une maintenance ou d un incident est annoncee une fois quand l evenement disparait de la page publique
+- l etat anti-spam est conserve dans `runtime/uptime-kuma-status.json`
+
 ## Update
 
 1. Lire les changements voulus dans le depot local.
@@ -170,6 +180,10 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000`: intervalle minimal entre deux renommages des salons vocaux Stats
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30`: duree de validite des JSON PokéAPI
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880`: taille maximale d un asset Pokédex telecharge
+- `BOT_UPTIME_KUMA_STATUS_PAGE_URL=`: active la surveillance d une page Uptime Kuma publiee, par exemple `https://uptime.mathieu.pro/status/palworld`
+- `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME=🐾・palworld`: salon cible pour les annonces de statut Palworld
+- `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000`: frequence de lecture de l API publique de la page de statut
+- `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Uptime Kuma
 
 ## Build Sans Redemarrage
 
@@ -193,6 +207,7 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
 - verifier le volume Docker `example-muse-data`
 - verifier `C:\Projects\nether-beacon\runtime\admin-heartbeat.json` et `C:\Projects\nether-beacon\runtime\supervisor-state.json`
 - verifier `C:\Projects\nether-beacon\runtime\managed-ids.json` apres gros changement manuel de structure
+- verifier `C:\Projects\nether-beacon\runtime\uptime-kuma-status.json` si les annonces Palworld se repetent ou ne partent pas
 - `C:\Projects\nether-beacon\runtime\pokedex-cache` est un cache PokéAPI recréable pour les JSON, evolutions et images
 - garder les tokens Discord valides
 - relancer `/audit` apres tout gros changement manuel du serveur

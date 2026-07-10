@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, diagnostics and Pokédex commands.">
+    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, Palworld status alerts, diagnostics and Pokédex commands.">
     <meta name="theme-color" content="#ff7a2f">
     <title>NeatherBeacon - Discord bot stack</title>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JEYPY9HE0Q"></script>
@@ -36,7 +36,7 @@
             <div class="eyebrow">Self-hosted Discord stack</div>
             <h1>One beacon for gamers, music, stats and safe diagnostics.</h1>
             <p class="lede">
-              NeatherBeacon keeps Alpha on server operations and public commands, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
+              NeatherBeacon keeps Alpha on server operations, public commands and Palworld status alerts, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
             </p>
             <div class="actions">
               <a class="button" href="#quickstart">Start setup</a>
@@ -50,9 +50,10 @@
 mode        additive, non-destructive
 music       Muse 2.11.5
 stats       debounced voice KPIs
+palworld   Uptime Kuma alerts
 pokedex     autocomplete + cache
 diagnostics ephemeral, no secrets
-public URL  not required</pre>
+public URL  optional</pre>
           </aside>
         </div>
       </div>
@@ -77,6 +78,10 @@ public URL  not required</pre>
             <article class="card">
               <h3>Public fun commands</h3>
               <p>Pokédex commands use autocomplete, local JSON caching, request deduplication and cached Pokémon artwork.</p>
+            </article>
+            <article class="card">
+              <h3>Palworld status alerts</h3>
+              <p>Alpha polls the public Uptime Kuma page and posts one-shot up, down, maintenance and incident notices in the Palworld channel.</p>
             </article>
             <article class="card">
               <h3>Safe diagnostics</h3>
@@ -121,6 +126,12 @@ public URL  not required</pre>
               <div>
                 <strong>Capture Discord IDs.</strong><br>
                 Run <code>npm run capture:ids</code> so managed resources are reused by ID.
+              </div>
+            </div>
+            <div class="step">
+              <div>
+                <strong>Enable Palworld alerts.</strong><br>
+                Set <code>BOT_UPTIME_KUMA_STATUS_PAGE_URL</code> to the published Uptime Kuma status page and keep <code>BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME</code> on the Palworld channel.
               </div>
             </div>
             <div class="step">
