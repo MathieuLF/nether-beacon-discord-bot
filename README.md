@@ -10,6 +10,9 @@
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-222?logo=githubpages&logoColor=white)](https://mathieulf.github.io/neather-beacon-discord-bot/)
+[![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/2ghwj8B7Vd)
+
+Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
 
 ## What it does
 

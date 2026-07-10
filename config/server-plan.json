@@ -112,17 +112,14 @@
           "topic": "Le cœur du serveur : papote, lance une game, partage ta vibe."
         },
         {
-          "name": "🧪・essais",
-          "legacyNames": [
-            "tests"
-          ],
+          "name": "🐾・palworld",
           "type": "GuildText",
           "preset": "textWrite",
           "groups": [
             "COMMUNITY"
           ],
-          "everyonePreset": "defaultText",
-          "topic": "Tests, bots, commandes et petits essais sans polluer le général."
+          "everyonePreset": "publicText",
+          "topic": "Discussions, astuces, bases et entraide autour de Palworld."
         },
         {
           "name": "📜・arrivées-et-départs",
@@ -151,6 +148,28 @@
           ],
           "everyonePreset": "publicText",
           "topic": "Invitations de jeu, codes de lobby, seeds, realms et liens pour se rejoindre vite."
+        }
+      ]
+    },
+    {
+      "category": "🗃️ Archives",
+      "legacyNames": [
+        "Archives"
+      ],
+      "channels": [
+        {
+          "name": "🧪・essais",
+          "legacyNames": [
+            "tests"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "defaultText",
+          "allowExistingMove": true,
+          "topic": "Bac d'archives pour tests, bots, commandes et petits essais sans polluer le général."
         }
       ]
     },
