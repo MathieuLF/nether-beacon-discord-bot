@@ -181,7 +181,7 @@ Defaults are documented in `.env.example`:
 - `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000` controls how often Alpha checks the public status page API.
 - `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000` limits each Uptime Kuma HTTP request.
 - `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld metrics, player events and Discord announcements are posted.
-- `BOT_PALWORLD_REST_API_URL=` enables Palworld REST features when set to the server API base URL, for example `http://127.0.0.1:8212/v1/api`.
+- `BOT_PALWORLD_REST_API_URL=` enables Palworld REST features when set to the server API base URL, for example `http://host.docker.internal:8212/v1/api` when the API or SSH tunnel is exposed on the Docker Desktop host.
 - `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth.
 - `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000` limits Palworld REST calls.
 - `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000` controls player join/leave polling.

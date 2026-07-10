@@ -216,7 +216,7 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000`: frequence de lecture de l API publique de la page de statut
 - `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Uptime Kuma
 - `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld`: salon cible pour les metrics, evenements joueurs et annonces Palworld REST
-- `BOT_PALWORLD_REST_API_URL=`: URL de base de l API REST Palworld, par exemple `http://127.0.0.1:8212/v1/api`
+- `BOT_PALWORLD_REST_API_URL=`: URL de base de l API REST Palworld, par exemple `http://host.docker.internal:8212/v1/api` si l API ou le tunnel SSH est expose sur l hote Docker Desktop
 - `BOT_PALWORLD_REST_API_USERNAME=`: utilisateur Basic Auth Palworld REST
 - `BOT_PALWORLD_REST_API_PASSWORD=`: mot de passe Basic Auth Palworld REST
 - `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Palworld REST
