@@ -43,7 +43,7 @@ test('fetchPalworldMetrics calls the REST metrics endpoint with Basic auth', asy
   assert.match(formatPalworldMetrics(metrics), /1h 1m/);
 });
 
-test('planPalworldPlayerAnnouncements baselines first poll then announces joins and leaves', () => {
+test('planPalworldPlayerAnnouncements baselines first poll then announces stable joins and leaves after grace', () => {
   const initialSnapshot = buildPlayerSnapshot({
     players: [
       { name: 'Lamball', playerId: 'player-1', ip: '10.0.0.1' },
@@ -63,10 +63,69 @@ test('planPalworldPlayerAnnouncements baselines first poll then announces joins 
   }, '2026-07-10T12:01:00.000Z');
   const changed = planPalworldPlayerAnnouncements(changedSnapshot, initial.state);
 
+  assert.equal(changed.messages.length, 0);
+  assert.equal(Object.keys(changed.state.pendingPlayerEvents).length, 2);
+
+  const stable = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({
+      players: [
+        { name: 'Lamball', playerId: 'player-1', ip: '10.0.0.1' },
+        { name: 'Direhowl', playerId: 'player-3', location_x: 456 },
+      ],
+    }, '2026-07-10T12:03:01.000Z'),
+    changed.state,
+  );
+
+  assert.equal(stable.messages.length, 2);
+  assert.match(stable.messages[0], /Direhowl/);
+  assert.match(stable.messages[1], /Cattiva/);
+  assert.doesNotMatch(stable.messages.join('\n'), /10\.0\.0\.1|player-1|location/);
+  assert.equal(Object.keys(stable.state.pendingPlayerEvents).length, 0);
+});
+
+test('planPalworldPlayerAnnouncements cancels quick disconnect and reconnect flaps', () => {
+  const initial = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({ players: [{ name: 'Lamball', playerId: 'player-1' }] }, '2026-07-10T12:00:00.000Z'),
+    defaultPlayerState(),
+  );
+  const disconnected = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({ players: [] }, '2026-07-10T12:01:00.000Z'),
+    initial.state,
+  );
+
+  assert.equal(disconnected.messages.length, 0);
+  assert.equal(Object.keys(disconnected.state.pendingPlayerEvents).length, 1);
+
+  const reconnected = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({ players: [{ name: 'Lamball', playerId: 'player-1' }] }, '2026-07-10T12:01:45.000Z'),
+    disconnected.state,
+  );
+
+  assert.equal(reconnected.messages.length, 0);
+  assert.equal(Object.keys(reconnected.state.pendingPlayerEvents).length, 0);
+
+  const stillOnline = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({ players: [{ name: 'Lamball', playerId: 'player-1' }] }, '2026-07-10T12:04:00.000Z'),
+    reconnected.state,
+  );
+
+  assert.equal(stillOnline.messages.length, 0);
+});
+
+test('planPalworldPlayerAnnouncements can use a zero grace window for immediate event planning', () => {
+  const initial = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({ players: [{ name: 'Lamball', playerId: 'player-1' }] }, '2026-07-10T12:00:00.000Z'),
+    defaultPlayerState(),
+  );
+  const changed = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({ players: [{ name: 'Direhowl', playerId: 'player-3' }] }, '2026-07-10T12:01:00.000Z'),
+    initial.state,
+    { eventGraceMs: 0 },
+  );
+
   assert.equal(changed.messages.length, 2);
   assert.match(changed.messages[0], /Direhowl/);
-  assert.match(changed.messages[1], /Cattiva/);
-  assert.doesNotMatch(changed.messages.join('\n'), /10\.0\.0\.1|player-1|location/);
+  assert.match(changed.messages[1], /Lamball/);
 });
 
 test('planPalworldPlayerFetchFailure logs outages privately once and rebaselines on recovery', () => {

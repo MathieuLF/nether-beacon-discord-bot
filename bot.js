@@ -104,6 +104,7 @@ const PALWORLD_REST_API_USERNAME = process.env.BOT_PALWORLD_REST_API_USERNAME?.t
 const PALWORLD_REST_API_PASSWORD = process.env.BOT_PALWORLD_REST_API_PASSWORD || '';
 const PALWORLD_REST_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS, 10000);
 const PALWORLD_PLAYER_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS, 60000);
+const PALWORLD_PLAYER_EVENT_GRACE_MS = readPositiveInteger(process.env.BOT_PALWORLD_PLAYER_EVENT_GRACE_MS, 2 * 60 * 1000);
 const PALWORLD_METRICS_COOLDOWN_MS = readPositiveInteger(process.env.BOT_PALWORLD_METRICS_COOLDOWN_MS, 4 * 60 * 1000);
 const PALWORLD_PLAYER_STATE_PATH = path.join(paths.runtimeDir, 'palworld-players.json');
 const MOD_ROLE_NAME = 'Mod';
@@ -467,7 +468,9 @@ const pollPalworldPlayers = async (guild, origin) => {
   try {
     const snapshot = await fetchPalworldPlayers(getPalworldRestOptions());
     const previousState = loadPalworldPlayerState(PALWORLD_PLAYER_STATE_PATH);
-    const planned = planPalworldPlayerAnnouncements(snapshot, previousState);
+    const planned = planPalworldPlayerAnnouncements(snapshot, previousState, {
+      eventGraceMs: PALWORLD_PLAYER_EVENT_GRACE_MS,
+    });
 
     state.lastPalworldRest = {
       at: snapshot.checkedAt,
@@ -1209,7 +1212,7 @@ const helpText = [
   '- resynchronisation additive des rôles, catégories et salons gérés',
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
-  '- Palworld: metrics publics, connexions/déconnexions et annonces Discord vers jeu',
+  '- Palworld: metrics publics, connexions/déconnexions stabilisées et annonces Discord vers jeu',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
   `- commande admin/modo: ${formatCommandList(['/announce-palworld'])}`,

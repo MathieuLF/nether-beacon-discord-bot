@@ -45,7 +45,7 @@ Nom du stack: `NeatherBeacon`
 - `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite mis en cache, types, abilities, stats, species, labels, egg groups et evolution quand disponible
 - surveillance de la page Uptime Kuma Palworld avec annonce unique des transitions actif/inactif et des maintenances/incidents publics
 - commande publique `/metrics-palworld` avec cooldown global de 4 minutes
-- surveillance des connexions/deconnexions Palworld via l API REST officielle, apres baseline silencieuse
+- surveillance des connexions/deconnexions Palworld via l API REST officielle, apres baseline silencieuse et fenetre de stabilite
 - commande staff `/announce-palworld` pour publier une annonce dans Discord et la relayer en jeu via `POST /announce`
 - erreurs API Palworld REST signalees seulement dans le salon securise des logs
 - logs entree/sortie/deplacement vocal
@@ -172,7 +172,9 @@ Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALW
 - la commande est publique, visible par tous, mais limitee globalement par `BOT_PALWORLD_METRICS_COOLDOWN_MS` (4 minutes par defaut)
 - Alpha lit `GET /players` selon `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS` et compare avec `runtime/palworld-players.json`
 - le premier poll sert de baseline silencieuse, pour eviter de publier tous les joueurs presents au demarrage
-- les entrees/sorties detectees ensuite sont publiees dans `BOT_PALWORLD_CHANNEL_NAME`
+- les entrees/sorties detectees ensuite restent en attente pendant `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS`
+- si un joueur deco/reco rapidement avant la fin de cette fenetre, l evenement en attente est annule sans message public
+- les entrees/sorties stables sont publiees dans `BOT_PALWORLD_CHANNEL_NAME`
 - les identifiants joueur sont hashes dans le fichier runtime; Discord ne recoit jamais les IP, player IDs, user IDs ou positions
 - si l API Palworld ne repond plus, Alpha annonce la panne et le retour seulement dans le salon securise des logs
 - apres une panne API, Alpha rebaseline les joueurs sans publier de faux depart ou fausse arrivee
@@ -221,6 +223,7 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_PALWORLD_REST_API_PASSWORD=`: mot de passe Basic Auth Palworld REST
 - `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Palworld REST
 - `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000`: frequence de lecture de `GET /players`
+- `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS=120000`: delai de stabilite avant de publier une connexion/deconnexion Palworld
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000`: cooldown global de `/metrics-palworld`
 
 ## Build Sans Redemarrage

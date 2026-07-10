@@ -93,7 +93,8 @@ When `BOT_UPTIME_KUMA_STATUS_PAGE_URL` points to a published Uptime Kuma status 
 When the Palworld REST API is configured, Alpha can read and publish live game signals without exposing the API publicly.
 
 - `/metrics-palworld` reads `GET /metrics` and posts server FPS, players, frame time, uptime, in-game days and bases.
-- Alpha polls `GET /players`, stores only hashed player identities, and posts join/leave notices in the Palworld channel after the first silent baseline.
+- Alpha polls `GET /players`, stores only hashed player identities, and posts join/leave notices in the Palworld channel after the first silent baseline and a short stability grace period.
+- Quick disconnect/reconnect flaps cancel pending notices instead of posting leave/rejoin spam.
 - If the Palworld API is unreachable, outage and recovery notices go only to the secure logs channel; public join/leave notices are rebaselined after recovery to avoid false positives.
 - `/announce-palworld` calls `POST /announce` and then posts the same announcement in the Palworld Discord channel.
 - Player IPs, player IDs, user IDs and locations are never printed in Discord messages.
@@ -185,6 +186,7 @@ Defaults are documented in `.env.example`:
 - `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth.
 - `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000` limits Palworld REST calls.
 - `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000` controls player join/leave polling.
+- `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS=120000` requires a player join/leave state to stay stable before a Discord notice is posted.
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000` controls the global `/metrics-palworld` cooldown.
 
 ## Public GitHub readiness
