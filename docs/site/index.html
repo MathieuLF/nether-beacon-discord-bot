@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, Palworld status alerts, diagnostics and Pokédex commands.">
+    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, Palworld status and REST signals, diagnostics and Pokédex commands.">
     <meta name="theme-color" content="#ff7a2f">
     <title>NeatherBeacon - Discord bot stack</title>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JEYPY9HE0Q"></script>
@@ -36,7 +36,7 @@
             <div class="eyebrow">Self-hosted Discord stack</div>
             <h1>One beacon for gamers, music, stats and safe diagnostics.</h1>
             <p class="lede">
-              NeatherBeacon keeps Alpha on server operations, public commands and Palworld status alerts, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
+              NeatherBeacon keeps Alpha on server operations, public commands, Palworld status and live game signals, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
             </p>
             <div class="actions">
               <a class="button" href="#quickstart">Start setup</a>
@@ -50,7 +50,7 @@
 mode        additive, non-destructive
 music       Muse 2.11.5
 stats       debounced voice KPIs
-palworld   Uptime Kuma alerts
+palworld   status + REST signals
 pokedex     autocomplete + cache
 diagnostics ephemeral, no secrets
 public URL  optional</pre>
@@ -84,6 +84,10 @@ public URL  optional</pre>
               <p>Alpha polls the public Uptime Kuma page and posts one-shot up, down, maintenance and incident notices in the Palworld channel; Kuma outages stay in admin logs.</p>
             </article>
             <article class="card">
+              <h3>Palworld live layer</h3>
+              <p>REST metrics, player join/leave notices and staff announcements keep the Discord channel connected to the game without exposing secrets.</p>
+            </article>
+            <article class="card">
               <h3>Safe diagnostics</h3>
               <p>Admin-only diagnostics expose runtime health, command hashes and cache metadata without printing secrets or file contents.</p>
             </article>
@@ -94,7 +98,7 @@ public URL  optional</pre>
       <section class="section" id="commands">
         <div class="shell">
           <h2>Commands</h2>
-          <p class="section-intro">Admin commands stay locked down. Pokédex commands are public, rate-limited and autocomplete-enabled.</p>
+          <p class="section-intro">Admin commands stay locked down. Palworld metrics and Pokédex commands are public, rate-limited and safe by default.</p>
           <div class="commands">
             <div class="command"><code>/status</code><br>Show Alpha, Bravo, runtime and cache status.</div>
             <div class="command"><code>/audit</code><br>Compare desired server structure without changing anything.</div>
@@ -102,6 +106,8 @@ public URL  optional</pre>
             <div class="command"><code>/stats-refresh</code><br>Force the Stats voice channels to refresh.</div>
             <div class="command"><code>/diag</code><br>Show safe Alpha, Bravo, stats and command diagnostics.</div>
             <div class="command"><code>/cache-status</code><br>Report local cache size and age without file contents.</div>
+            <div class="command"><code>/metrics-palworld</code><br>Show public Palworld REST metrics with a global 4-minute cooldown.</div>
+            <div class="command"><code>/announce-palworld message:...</code><br>Let admins and moderators post to Discord and relay the announcement in game.</div>
             <div class="command"><code>/pokemon name:charizard</code><br>Return an autocomplete-backed Pokédex card with artwork.</div>
             <div class="command"><code>/weakness pokemon:charizard</code><br>Show weaknesses, resistances and immunities.</div>
             <div class="command"><code>/move name:flamethrower</code><br>Look up a move.</div>
@@ -136,6 +142,12 @@ public URL  optional</pre>
             </div>
             <div class="step">
               <div>
+                <strong>Enable Palworld REST.</strong><br>
+                Set <code>BOT_PALWORLD_REST_API_URL</code>, <code>BOT_PALWORLD_REST_API_USERNAME</code> and <code>BOT_PALWORLD_REST_API_PASSWORD</code> for metrics, player events and in-game announcements.
+              </div>
+            </div>
+            <div class="step">
+              <div>
                 <strong>Build and restart with notice.</strong><br>
                 Run <code>.\scripts\rebuild-restart.ps1</code>. Alpha posts an orange maintenance message first.
               </div>
@@ -152,7 +164,7 @@ public URL  optional</pre>
       <div class="shell">
         <p>© <span data-year></span> NeatherBeacon contributors. Self-hosted, MIT licensed.</p>
         <p>Public repository content must exclude tokens, runtime state and Muse data.</p>
-        <p>Independent project. No official ties to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse or PokéAPI.</p>
+        <p>Independent project. No official ties to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse or PokéAPI.</p>
         <p><a href="../../LICENSE">License</a> · <a href="../../NOTICE.md">Notices</a> · <a href="../LEGAL.md">Legal notes</a></p>
       </div>
     </footer>

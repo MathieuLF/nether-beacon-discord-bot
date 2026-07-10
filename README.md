@@ -1,6 +1,6 @@
 # NeatherBeacon
 
-> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, and public Pokédex commands.
+> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, Palworld live signals, and public Pokédex commands.
 
 <!-- Public repository slug: MathieuLF/neather-beacon-discord-bot -->
 
@@ -18,7 +18,7 @@ Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
 
 NeatherBeacon runs a single Docker container with two Discord bot accounts:
 
-- **NeatherBeacon - Alpha**: server audit, additive resync, logs, stats, public Pokédex commands.
+- **NeatherBeacon - Alpha**: server audit, additive resync, logs, stats, Palworld live signals, public Pokédex commands.
 - **NeatherBeacon - Bravo**: music playback through upstream Muse.
 
 The project is designed to be **safe by default**:
@@ -40,6 +40,7 @@ This is a self-hosted side project for a private Discord server.
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
 | Palworld status | Uptime Kuma status-page polling, one-shot up/down messages and maintenance/incident notices |
+| Palworld live | Public `/metrics-palworld`, player join/leave notices, staff `/announce-palworld` relayed in game |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
 
@@ -55,6 +56,14 @@ This is a self-hosted side project for a private Discord server.
 - `/stats-refresh` - force Stats voice channels to refresh now.
 - `/diag` - safe runtime diagnostic for Alpha, Bravo, command hash and recent stats.
 - `/cache-status` - local runtime/Pokédex cache sizes and ages without file contents or secrets.
+
+### Admin/moderator Palworld
+
+- `/announce-palworld message:...` - publish a staff announcement in the Palworld Discord channel and relay it to the in-game server through the Palworld REST API.
+
+### Public Palworld
+
+- `/metrics-palworld` - show the latest Palworld REST metrics publicly. This command has a global 4-minute cooldown across the server.
 
 ### Public Pokédex
 
@@ -79,6 +88,16 @@ When `BOT_UPTIME_KUMA_STATUS_PAGE_URL` points to a published Uptime Kuma status 
 - If Uptime Kuma itself is unreachable, Alpha reports that outage and recovery only in the secure logs channel.
 - Anti-spam state is stored in `runtime/uptime-kuma-status.json`, so bot restarts do not replay the same notice.
 
+## Palworld REST integration
+
+When the Palworld REST API is configured, Alpha can read and publish live game signals without exposing the API publicly.
+
+- `/metrics-palworld` reads `GET /metrics` and posts server FPS, players, frame time, uptime, in-game days and bases.
+- Alpha polls `GET /players`, stores only hashed player identities, and posts join/leave notices in the Palworld channel after the first silent baseline.
+- If the Palworld API is unreachable, outage and recovery notices go only to the secure logs channel; public join/leave notices are rebaselined after recovery to avoid false positives.
+- `/announce-palworld` calls `POST /announce` and then posts the same announcement in the Palworld Discord channel.
+- Player IPs, player IDs, user IDs and locations are never printed in Discord messages.
+
 ## Repository layout
 
 ```text
@@ -94,6 +113,7 @@ When `BOT_UPTIME_KUMA_STATUS_PAGE_URL` points to a published Uptime Kuma status 
 ├── lib/
 │   ├── reconcile.js          # additive Discord reconciliation
 │   ├── managed-ids.js        # runtime ID registry support
+│   ├── palworld-rest.js      # Palworld REST metrics, announcements and player diffing
 │   └── pokedex.js            # cached PokéAPI integration
 ├── scripts/
 │   ├── capture-managed-ids.js
@@ -146,6 +166,7 @@ Recreatable runtime caches:
 - `runtime/admin-state.json`
 - `runtime/managed-ids.json`
 - `runtime/uptime-kuma-status.json`
+- `runtime/palworld-players.json`
 
 ## Optional runtime tuning
 
@@ -159,6 +180,12 @@ Defaults are documented in `.env.example`:
 - `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME=🐾・palworld` controls where up/down and maintenance notices are posted.
 - `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000` controls how often Alpha checks the public status page API.
 - `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000` limits each Uptime Kuma HTTP request.
+- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld metrics, player events and Discord announcements are posted.
+- `BOT_PALWORLD_REST_API_URL=` enables Palworld REST features when set to the server API base URL, for example `http://127.0.0.1:8212/v1/api`.
+- `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth.
+- `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000` limits Palworld REST calls.
+- `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000` controls player join/leave polling.
+- `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000` controls the global `/metrics-palworld` cooldown.
 
 ## Public GitHub readiness
 
@@ -185,7 +212,7 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 
 NeatherBeacon is released under the MIT License. See [LICENSE](LICENSE).
 
-Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
+Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
 
 See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
 

@@ -9,7 +9,8 @@ const {
 const { config } = require('dotenv');
 const { paths } = require('./lib/config');
 const {
-  PUBLIC_COMMAND_NAMES,
+  POKEDEX_COMMAND_NAMES,
+  STAFF_COMMAND_NAMES,
   commandHash,
   commandPayload,
 } = require('./lib/commands');
@@ -38,6 +39,18 @@ const {
   planUptimeKumaFetchFailure,
   saveUptimeKumaState,
 } = require('./lib/uptime-kuma-status');
+const {
+  fetchPalworldMetrics,
+  fetchPalworldPlayers,
+  formatPalworldAnnouncementForDiscord,
+  formatPalworldMetrics,
+  loadPalworldPlayerState,
+  normalizeAnnouncementMessage,
+  planPalworldPlayerAnnouncements,
+  planPalworldPlayerFetchFailure,
+  savePalworldPlayerState,
+  sendPalworldAnnouncement,
+} = require('./lib/palworld-rest');
 const {
   autocompletePokedex,
   formatAbilitySummary,
@@ -85,6 +98,15 @@ const UPTIME_KUMA_STATUS_CHANNEL_NAME = process.env.BOT_UPTIME_KUMA_STATUS_CHANN
 const UPTIME_KUMA_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_POLL_INTERVAL_MS, 60000);
 const UPTIME_KUMA_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS, 10000);
 const UPTIME_KUMA_STATE_PATH = path.join(paths.runtimeDir, 'uptime-kuma-status.json');
+const PALWORLD_CHANNEL_NAME = process.env.BOT_PALWORLD_CHANNEL_NAME?.trim() || UPTIME_KUMA_STATUS_CHANNEL_NAME;
+const PALWORLD_REST_API_URL = process.env.BOT_PALWORLD_REST_API_URL?.trim() || '';
+const PALWORLD_REST_API_USERNAME = process.env.BOT_PALWORLD_REST_API_USERNAME?.trim() || '';
+const PALWORLD_REST_API_PASSWORD = process.env.BOT_PALWORLD_REST_API_PASSWORD || '';
+const PALWORLD_REST_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS, 10000);
+const PALWORLD_PLAYER_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS, 60000);
+const PALWORLD_METRICS_COOLDOWN_MS = readPositiveInteger(process.env.BOT_PALWORLD_METRICS_COOLDOWN_MS, 4 * 60 * 1000);
+const PALWORLD_PLAYER_STATE_PATH = path.join(paths.runtimeDir, 'palworld-players.json');
+const MOD_ROLE_NAME = 'Mod';
 const STATS_CHANNEL_PREFIXES = {
   date: '📅・',
   online: '🟢・',
@@ -99,6 +121,7 @@ const STATS_CHANNEL_PREFIXES = {
 };
 const PUBLIC_COMMAND_COOLDOWN_MS = 5000;
 const publicCommandCooldowns = new Map();
+let lastPalworldMetricsCommandAt = 0;
 
 const formatLine = (label, value) => `- **${label}** : ${value}`;
 
@@ -207,6 +230,22 @@ const hasAdminAccess = (interaction) => {
   return interaction.member.roles.cache.some((role) => role.name === ADMIN_ROLE_NAME);
 };
 
+const hasStaffAccess = (interaction) => {
+  if (hasAdminAccess(interaction)) return true;
+  if (!interaction.inCachedGuild()) return false;
+  return interaction.member.roles.cache.some((role) => role.name === MOD_ROLE_NAME);
+};
+
+const isPalworldRestConfigured = () =>
+  Boolean(PALWORLD_REST_API_URL && PALWORLD_REST_API_USERNAME && PALWORLD_REST_API_PASSWORD);
+
+const getPalworldRestOptions = () => ({
+  apiUrl: PALWORLD_REST_API_URL,
+  username: PALWORLD_REST_API_USERNAME,
+  password: PALWORLD_REST_API_PASSWORD,
+  timeoutMs: PALWORLD_REST_FETCH_TIMEOUT_MS,
+});
+
 const getPublicCommandCooldown = (userId) => {
   const now = Date.now();
 
@@ -221,6 +260,15 @@ const getPublicCommandCooldown = (userId) => {
   if (remaining > 0) return Math.ceil(remaining / 1000);
 
   publicCommandCooldowns.set(userId, now);
+  return 0;
+};
+
+const reservePalworldMetricsCooldown = () => {
+  const now = Date.now();
+  const remaining = PALWORLD_METRICS_COOLDOWN_MS - (now - lastPalworldMetricsCommandAt);
+  if (remaining > 0) return Math.ceil(remaining / 1000);
+
+  lastPalworldMetricsCommandAt = now;
   return 0;
 };
 
@@ -291,13 +339,18 @@ const getLogChannelId = (guild) => state.logChannelId || findManagedLogChannelId
 const getEventChannelId = (guild) => state.eventChannelId || findManagedChannelIdByName(guild, plan.eventChannelName);
 const getWelcomeChannelId = (guild) => findManagedChannelIdByName(guild, WELCOME_CHANNEL_NAME);
 const getUptimeKumaStatusChannelId = (guild) => findManagedChannelIdByName(guild, UPTIME_KUMA_STATUS_CHANNEL_NAME);
+const getPalworldChannelId = (guild) => findManagedChannelIdByName(guild, PALWORLD_CHANNEL_NAME);
 
-const sendMessageToChannel = async (guild, channelId, message) => {
+const sendMessageToChannel = async (guild, channelId, message, options = {}) => {
   if (!channelId) return;
   const channel = await guild.channels.fetch(channelId).catch(() => null);
   if (channel?.isTextBased()) {
-    await channel.send(message.slice(0, 1990)).catch(() => undefined);
+    const payload = typeof message === 'string'
+      ? { content: message.slice(0, 1990) }
+      : { ...message, content: message.content?.slice(0, 1990) || '' };
+    return await channel.send({ ...payload, ...options }).catch(() => null);
   }
+  return null;
 };
 
 const sendLog = async (guild, message) => sendMessageToChannel(guild, getLogChannelId(guild), message);
@@ -392,6 +445,103 @@ const startUptimeKumaScheduler = (guild) => {
   uptimeKumaBootstrapTimer.unref();
 };
 
+let palworldPlayerPollTimer = null;
+let palworldPlayerBootstrapTimer = null;
+let palworldPlayerPollInFlight = false;
+
+const sendPalworldPublicMessage = async (guild, message) => {
+  const channelId = getPalworldChannelId(guild);
+  if (!channelId) {
+    return false;
+  }
+
+  const sent = await sendMessageToChannel(guild, channelId, message, { allowedMentions: { parse: [] } });
+  return Boolean(sent);
+};
+
+const pollPalworldPlayers = async (guild, origin) => {
+  if (!isPalworldRestConfigured() || palworldPlayerPollInFlight) return;
+
+  palworldPlayerPollInFlight = true;
+
+  try {
+    const snapshot = await fetchPalworldPlayers(getPalworldRestOptions());
+    const previousState = loadPalworldPlayerState(PALWORLD_PLAYER_STATE_PATH);
+    const planned = planPalworldPlayerAnnouncements(snapshot, previousState);
+
+    state.lastPalworldRest = {
+      at: snapshot.checkedAt,
+      status: 'players-ok',
+      players: snapshot.players.length,
+    };
+    updateRuntimeFiles();
+
+    if (planned.messages.length && !getPalworldChannelId(guild)) {
+      await sendLog(guild, formatBotMessage('⚠️ Salon Palworld introuvable', [
+        formatLine('Salon attendu', PALWORLD_CHANNEL_NAME),
+        formatLine('Origine', `palworld-players:${origin}`),
+      ]));
+    } else {
+      for (const message of planned.messages) {
+        const sent = await sendPalworldPublicMessage(guild, message);
+        if (sent) {
+          state.lastPalworldPlayerEvent = message.split('\n')[0].replace(/\*/g, '');
+        } else {
+          await sendLog(guild, formatBotMessage('⚠️ Événement Palworld non publié', [
+            formatLine('Salon', PALWORLD_CHANNEL_NAME),
+            formatLine('Origine', `palworld-players:${origin}`),
+          ]));
+        }
+      }
+    }
+
+    for (const message of planned.logMessages) {
+      await sendLog(guild, message);
+    }
+
+    savePalworldPlayerState(PALWORLD_PLAYER_STATE_PATH, planned.state);
+    updateRuntimeFiles();
+  } catch (error) {
+    const previousState = loadPalworldPlayerState(PALWORLD_PLAYER_STATE_PATH);
+    const planned = planPalworldPlayerFetchFailure({
+      error,
+      previousState,
+    });
+
+    state.lastPalworldRest = {
+      at: planned.state.updatedAt,
+      status: 'api-unreachable',
+      players: Object.keys(planned.state.players).length,
+    };
+    state.lastError = `palworld-players:${origin}: ${error.message}`;
+    updateRuntimeFiles();
+
+    for (const message of planned.logMessages) {
+      await sendLog(guild, message);
+    }
+
+    savePalworldPlayerState(PALWORLD_PLAYER_STATE_PATH, planned.state);
+  } finally {
+    palworldPlayerPollInFlight = false;
+  }
+};
+
+const startPalworldPlayerScheduler = (guild) => {
+  if (!isPalworldRestConfigured() || palworldPlayerPollTimer || palworldPlayerBootstrapTimer) return;
+
+  palworldPlayerBootstrapTimer = setTimeout(async () => {
+    palworldPlayerBootstrapTimer = null;
+    await pollPalworldPlayers(guild, 'startup');
+
+    palworldPlayerPollTimer = setInterval(async () => {
+      const cachedGuild = client.guilds.cache.get(GUILD_ID);
+      if (cachedGuild) await pollPalworldPlayers(cachedGuild, 'interval');
+    }, PALWORLD_PLAYER_POLL_INTERVAL_MS);
+    palworldPlayerPollTimer.unref();
+  }, 15000);
+  palworldPlayerBootstrapTimer.unref();
+};
+
 const buildWelcomeMessage = (memberOrMention) =>
   formatBotMessage(`👋 Bienvenue ${memberOrMention} dans Gaymers`, [
     'Pose tes affaires, regarde les salons, et lance une game quand tu veux.',
@@ -441,6 +591,7 @@ const knownSecretValues = () => [
   process.env.MUSE_YOUTUBE_API_KEY,
   process.env.MUSE_SPOTIFY_CLIENT_ID,
   process.env.MUSE_SPOTIFY_CLIENT_SECRET,
+  PALWORLD_REST_API_PASSWORD,
 ].filter(Boolean);
 
 const markTask = (taskName) => {
@@ -814,6 +965,7 @@ const summarizeStatus = (guild) => {
     formatLine('Audit', formatTimestamp(state.lastAudit?.at)),
     formatLine('Stats', formatTimestamp(state.lastStats?.at)),
     formatLine('Palworld', UPTIME_KUMA_STATUS_PAGE_URL ? `${state.lastUptimeKuma?.status || 'en attente'} (${formatTimestamp(state.lastUptimeKuma?.at)})` : 'désactivé'),
+    formatLine('Palworld REST', isPalworldRestConfigured() ? `${state.lastPalworldRest?.status || 'en attente'} (${formatTimestamp(state.lastPalworldRest?.at)})` : 'désactivé'),
     formatLine('Membre', state.lastMemberEvent || 'aucun'),
     formatLine('Vocal', state.lastVoiceEvent || 'aucun'),
     '',
@@ -896,6 +1048,157 @@ const formatDuration = (startedAt) => {
   return parts.join(' ');
 };
 
+const replyPalworldRestNotConfigured = async (interaction) => {
+  await interaction.reply({
+    content: formatBotMessage('⚠️ Palworld REST désactivé', [
+      'Les variables `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALWORLD_REST_API_PASSWORD` doivent être configurées côté bot.',
+    ]),
+    ephemeral: true,
+  });
+};
+
+const runPalworldMetricsCommand = async (interaction) => {
+  if (!isPalworldRestConfigured()) {
+    await replyPalworldRestNotConfigured(interaction);
+    return;
+  }
+
+  const cooldownSeconds = reservePalworldMetricsCooldown();
+  if (cooldownSeconds > 0) {
+    await interaction.reply({
+      content: formatBotMessage('⏳ Metrics Palworld', [
+        `Les metrics sont limités globalement. Réessaie dans ${cooldownSeconds}s.`,
+      ]),
+      ephemeral: true,
+    }).catch(() => undefined);
+    return;
+  }
+
+  await interaction.deferReply();
+
+  try {
+    const metrics = await fetchPalworldMetrics(getPalworldRestOptions());
+    state.lastPalworldRest = {
+      at: metrics.checkedAt,
+      status: 'metrics-ok',
+      players: metrics.currentPlayers,
+    };
+    updateRuntimeFiles();
+
+    await interaction.editReply({
+      content: formatPalworldMetrics(metrics, { timeZone: BOT_TIMEZONE }),
+      allowedMentions: { parse: [] },
+    });
+  } catch (error) {
+    state.lastPalworldRest = {
+      at: new Date().toISOString(),
+      status: 'metrics-error',
+      players: state.lastPalworldRest?.players ?? null,
+    };
+    state.lastError = `palworld-metrics: ${error.message}`;
+    updateRuntimeFiles();
+
+    await interaction.editReply({
+      content: formatBotMessage('⚠️ Metrics Palworld indisponibles', [
+        "L'API REST Palworld ne répond pas correctement. Les détails techniques ont été envoyés aux logs.",
+      ]),
+    }).catch(() => undefined);
+    await sendLog(interaction.guild, formatBotMessage('⚠️ Metrics Palworld indisponibles', [
+      formatLine('Erreur', error.message),
+    ]));
+  }
+};
+
+const runPalworldAnnouncementCommand = async (interaction, guild) => {
+  if (!isPalworldRestConfigured()) {
+    await replyPalworldRestNotConfigured(interaction);
+    return;
+  }
+
+  const palworldChannelId = getPalworldChannelId(guild);
+  if (!palworldChannelId) {
+    await interaction.reply({
+      content: formatBotMessage('⚠️ Salon Palworld introuvable', [
+        formatLine('Salon attendu', PALWORLD_CHANNEL_NAME),
+      ]),
+      ephemeral: true,
+    });
+    return;
+  }
+
+  if (interaction.channelId !== palworldChannelId) {
+    await interaction.reply({
+      content: formatBotMessage('📣 Annonce Palworld', [
+        `Utilise cette commande directement dans <#${palworldChannelId}> pour que l’annonce Discord reste au bon endroit.`,
+      ]),
+      ephemeral: true,
+    });
+    return;
+  }
+
+  const message = normalizeAnnouncementMessage(interaction.options.getString('message', true));
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await sendPalworldAnnouncement({
+      ...getPalworldRestOptions(),
+      message,
+    });
+
+    const discordAnnouncementSent = await sendPalworldPublicMessage(
+      guild,
+      formatPalworldAnnouncementForDiscord({
+        message,
+        authorName: interaction.member?.displayName || interaction.user.tag || interaction.user.username,
+      }),
+    );
+
+    await interaction.editReply({
+      content: discordAnnouncementSent
+        ? formatBotMessage('📣 Annonce Palworld envoyée', [
+          'Elle est visible dans Discord et relayée en jeu.',
+        ])
+        : formatBotMessage('⚠️ Annonce Palworld partielle', [
+          "Elle a été relayée en jeu, mais Discord n'a pas confirmé la publication publique.",
+          'Les détails techniques ont été envoyés aux logs.',
+        ]),
+    });
+
+    state.lastPalworldRest = {
+      at: new Date().toISOString(),
+      status: 'announce-ok',
+      players: state.lastPalworldRest?.players ?? null,
+    };
+    updateRuntimeFiles();
+
+    await sendLog(guild, formatBotMessage(discordAnnouncementSent ? '📣 Annonce Palworld' : '⚠️ Annonce Palworld partielle', [
+      formatLine('Auteur', formatMember(interaction.member)),
+      formatLine('Salon', PALWORLD_CHANNEL_NAME),
+      formatLine('Visible dans Discord', discordAnnouncementSent ? 'oui' : 'non confirmé'),
+      formatLine('Relayée en jeu', 'oui'),
+    ]));
+  } catch (error) {
+    state.lastPalworldRest = {
+      at: new Date().toISOString(),
+      status: 'announce-error',
+      players: state.lastPalworldRest?.players ?? null,
+    };
+    state.lastError = `palworld-announce: ${error.message}`;
+    updateRuntimeFiles();
+
+    await interaction.editReply({
+      content: formatBotMessage('⚠️ Annonce Palworld non envoyée', [
+        "L'annonce n'a pas été publiée parce que l'API REST Palworld n'a pas confirmé la réception.",
+      ]),
+    }).catch(() => undefined);
+
+    await sendLog(guild, formatBotMessage('⚠️ Annonce Palworld échouée', [
+      formatLine('Auteur', formatMember(interaction.member)),
+      formatLine('Erreur', error.message),
+    ]));
+  }
+};
+
 const helpText = [
   '**🧭 Aide rapide - NeatherBeacon**',
   '',
@@ -906,8 +1209,11 @@ const helpText = [
   '- resynchronisation additive des rôles, catégories et salons gérés',
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
+  '- Palworld: metrics publics, connexions/déconnexions et annonces Discord vers jeu',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
+  `- commande admin/modo: ${formatCommandList(['/announce-palworld'])}`,
+  `- commandes Palworld publiques: ${formatCommandList(['/metrics-palworld'])}`,
   `- commandes Pokédex publiques: ${formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon'])}`,
   '',
   '**Prérequis**',
@@ -916,6 +1222,7 @@ const helpText = [
   '- Server Members Intent pour le bot admin',
   '- Presence Intent pour les KPI en ligne / absent / déco',
   '- Manage Guild, Manage Roles, Manage Channels pour le bot admin',
+  '- REST API Palworld activée si les commandes et événements Palworld sont utilisés',
   '',
   '**Notes**',
   "- aucune adresse publique n'est nécessaire en v1",
@@ -935,8 +1242,11 @@ const buildStartupLogMessage = (startupReport) =>
     '**Raccourcis admin**',
     formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status']),
     '',
+    '**Raccourci staff Palworld**',
+    formatCommandList(['/announce-palworld']),
+    '',
     '**Commandes publiques**',
-    formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon']),
+    formatCommandList(['/metrics-palworld', '/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon']),
     '',
     '**À savoir**',
     '- Les logs techniques arrivent ici.',
@@ -961,6 +1271,7 @@ client.once('clientReady', async () => {
     await refreshStatsDisplaySafe(guild, 'startup');
     startStatsScheduler();
     startUptimeKumaScheduler(guild);
+    startPalworldPlayerScheduler(guild);
 
     await sendLog(
       guild,
@@ -978,7 +1289,7 @@ client.once('clientReady', async () => {
 
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isAutocomplete()) {
-    if (interaction.guildId !== GUILD_ID || !PUBLIC_COMMAND_NAMES.has(interaction.commandName)) {
+    if (interaction.guildId !== GUILD_ID || !POKEDEX_COMMAND_NAMES.has(interaction.commandName)) {
       await interaction.respond([]).catch(() => undefined);
       return;
     }
@@ -1003,7 +1314,7 @@ client.on('interactionCreate', async (interaction) => {
     return;
   }
 
-  if (PUBLIC_COMMAND_NAMES.has(interaction.commandName)) {
+  if (POKEDEX_COMMAND_NAMES.has(interaction.commandName)) {
     const cooldownSeconds = getPublicCommandCooldown(interaction.user.id);
     if (cooldownSeconds > 0) {
       await interaction.reply({
@@ -1035,6 +1346,49 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
     return;
+  }
+
+  if (interaction.commandName === 'metrics-palworld') {
+    await runPalworldMetricsCommand(interaction);
+    return;
+  }
+
+  if (STAFF_COMMAND_NAMES.has(interaction.commandName)) {
+    if (!hasStaffAccess(interaction)) {
+      await interaction.reply({
+        content: formatBotMessage('🔒 Accès refusé', ['Commande réservée aux administrateurs et modérateurs.']),
+        ephemeral: true,
+      }).catch(() => undefined);
+      return;
+    }
+
+    try {
+      const guild = await refreshGuild();
+      state.guildName = guild.name;
+      updateRuntimeFiles();
+
+      if (interaction.commandName === 'announce-palworld') {
+        await runPalworldAnnouncementCommand(interaction, guild);
+        return;
+      }
+    } catch (error) {
+      state.lastError = error.message;
+      state.healthy = false;
+      updateRuntimeFiles();
+      const payload = {
+        content: formatBotMessage('⚠️ Erreur Alpha', [
+          formatLine('Message', error.message),
+        ]),
+        ephemeral: true,
+      };
+
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(payload).catch(() => undefined);
+      } else {
+        await interaction.reply(payload).catch(() => undefined);
+      }
+      return;
+    }
   }
 
   if (!hasAdminAccess(interaction)) {
