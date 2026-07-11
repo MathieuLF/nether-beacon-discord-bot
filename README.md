@@ -37,6 +37,7 @@ This is a self-hosted side project for a private Discord server.
 | Server management | `/audit`, `/resync`, managed roles/channels/categories, ID registry |
 | Logs | admin logs, public arrivals/departures, voice join/leave/move tracking |
 | Stats | locked public voice channels updated every 5 minutes, with event debounce |
+| Community channels | dedicated public spaces for Palworld and Pokémon GO conversations |
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
 | Palworld status | Uptime Kuma status-page polling, one-shot up/down messages and maintenance/incident notices |
