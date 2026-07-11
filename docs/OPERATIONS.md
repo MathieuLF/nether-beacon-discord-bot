@@ -35,6 +35,7 @@ Nom du stack: `NeatherBeacon`
 - attribution automatique du role `Noob Spawn` aux nouveaux membres humains
 - message d accueil tague dans `general` pour les nouveaux membres humains
 - salon public `invitations` pour les codes de lobby, realms et invitations en jeu
+- salons publics dedies a Palworld et Pokémon GO dans `Communaute`
 - commandes Pokédex publiques avec noms Pokémon en anglais:
   - `/pokemon`
   - `/weakness`
@@ -146,7 +147,7 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
 
 Le bot ne supprime pas les canaux, roles ou permissions deja presents. En cas de doublon ou d ambiguite, il signale le conflit et s arrete sur ce point au lieu de deviner.
 Le fichier `runtime/managed-ids.json` est le registre local des objets Discord deja reconnus. Il est alimente par `npm run capture:ids` et par les `resync` futurs. Si un salon gere est renomme manuellement, le bot peut encore le retrouver par ID et le corriger au lieu d en creer un nouveau.
-Le salon `general` est ouvert en ecriture a `@everyone`. Le salon `arrivees-et-departs` est public en lecture dans `Communaute`, avec ecriture reservee a `Admin`.
+Le salon `general` est ouvert en ecriture a `@everyone`. Les salons `palworld` et `pokemon-go` sont publics pour les conversations de communaute. Le salon `arrivees-et-departs` est public en lecture dans `Communaute`, avec ecriture reservee a `Admin`.
 La baseline serveur vise `MembersWithoutRoles` pour le filtre de contenu explicite et `Low` pour le niveau de verification.
 Si un role `Admin` existe deja sans permission `Administrator`, le bot le signale en conflit et ne le promeut pas silencieusement.
 Les horodatages exposes par le bot admin sont formates pour `America/Toronto`.
