@@ -122,6 +122,16 @@
           "topic": "Discussions, astuces, bases et entraide autour de Palworld."
         },
         {
+          "name": "📍・pokemon-go",
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "topic": "Raids, sorties, échanges, captures et entraide autour de Pokémon GO."
+        },
+        {
           "name": "📜・arrivées-et-départs",
           "legacyNames": [
             "arrivees-et-departs"
