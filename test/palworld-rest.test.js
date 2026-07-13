@@ -78,9 +78,73 @@ test('planPalworldPlayerAnnouncements baselines first poll then announces stable
 
   assert.equal(stable.messages.length, 2);
   assert.match(stable.messages[0], /Direhowl/);
+  assert.match(stable.messages[0], /En ligne maintenant\*\* : 2/);
   assert.match(stable.messages[1], /Cattiva/);
+  assert.match(stable.messages[1], /En ligne maintenant\*\* : 2/);
   assert.doesNotMatch(stable.messages.join('\n'), /10\.0\.0\.1|player-1|location/);
   assert.equal(Object.keys(stable.state.pendingPlayerEvents).length, 0);
+});
+
+test('planPalworldPlayerAnnouncements reports the current online count after stable player changes', () => {
+  const initial = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({
+      players: [
+        { name: 'Lamball', playerId: 'player-1' },
+        { name: 'Cattiva', playerId: 'player-2' },
+        { name: 'Direhowl', playerId: 'player-3' },
+      ],
+    }, '2026-07-10T12:00:00.000Z'),
+    defaultPlayerState(),
+  );
+  const pendingLeave = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({
+      players: [
+        { name: 'Lamball', playerId: 'player-1' },
+        { name: 'Direhowl', playerId: 'player-3' },
+      ],
+    }, '2026-07-10T12:01:00.000Z'),
+    initial.state,
+  );
+  const stableLeave = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({
+      players: [
+        { name: 'Lamball', playerId: 'player-1' },
+        { name: 'Direhowl', playerId: 'player-3' },
+      ],
+    }, '2026-07-10T12:03:01.000Z'),
+    pendingLeave.state,
+  );
+
+  assert.equal(stableLeave.messages.length, 1);
+  assert.match(stableLeave.messages[0], /Cattiva/);
+  assert.match(stableLeave.messages[0], /En ligne maintenant\*\* : 2/);
+
+  const pendingJoin = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({
+      players: [
+        { name: 'Lamball', playerId: 'player-1' },
+        { name: 'Cattiva', playerId: 'player-2' },
+        { name: 'Direhowl', playerId: 'player-3' },
+        { name: 'Foxparks', playerId: 'player-4' },
+      ],
+    }, '2026-07-10T12:04:00.000Z'),
+    stableLeave.state,
+  );
+  const stableJoin = planPalworldPlayerAnnouncements(
+    buildPlayerSnapshot({
+      players: [
+        { name: 'Lamball', playerId: 'player-1' },
+        { name: 'Cattiva', playerId: 'player-2' },
+        { name: 'Direhowl', playerId: 'player-3' },
+        { name: 'Foxparks', playerId: 'player-4' },
+      ],
+    }, '2026-07-10T12:06:01.000Z'),
+    pendingJoin.state,
+  );
+
+  assert.equal(stableJoin.messages.length, 1);
+  assert.match(stableJoin.messages[0], /Foxparks/);
+  assert.match(stableJoin.messages[0], /En ligne maintenant\*\* : 4/);
 });
 
 test('planPalworldPlayerAnnouncements cancels quick disconnect and reconnect flaps', () => {
