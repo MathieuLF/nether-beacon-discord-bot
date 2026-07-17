@@ -42,6 +42,7 @@ This is a self-hosted side project for a private Discord server.
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
 | Palworld status | Uptime Kuma status-page polling, one-shot up/down messages and maintenance/incident notices |
 | Palworld live | Public `/metrics-palworld`, player join/leave notices, staff `/announce-palworld` relayed in game |
+| Gaylemon daily recap | Automatic `/resume?jour=YYYY-MM-DD` link posted around 01:00 in Palworld, plus `/resume-hier` |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
 
@@ -65,6 +66,7 @@ This is a self-hosted side project for a private Discord server.
 ### Public Palworld
 
 - `/metrics-palworld` - show the latest Palworld REST metrics publicly. This command has a global 4-minute cooldown across the server.
+- `/resume-hier` - post the Gaylemon recap link for yesterday in the configured Palworld channel.
 
 ### Public Pokédex
 
@@ -99,6 +101,21 @@ When the Palworld REST API is configured, Alpha can read and publish live game s
 - If the Palworld API is unreachable, outage and recovery notices go only to the secure logs channel; public join/leave notices are rebaselined after recovery to avoid false positives.
 - `/announce-palworld` calls `POST /announce` and then posts the same announcement in the Palworld Discord channel.
 - Player IPs, player IDs, user IDs and locations are never printed in Discord messages.
+
+## Gaylemon daily recap
+
+Alpha posts a direct link to the previous local day on the Gaylemon microsite:
+
+```text
+https://gaylemon.mathieu.pro/resume?jour=YYYY-MM-DD
+```
+
+- default schedule: `01:00` in `America/Toronto`
+- default target channel: `🐾・palworld`
+- manual public command: `/resume-hier`
+- anti-replay state: `runtime/daily-summary-state.json`
+
+The bot checks `/resume?jour=...` and `data/public-events-index.json` before sending, while the public Discord message stays concise: title, short recap text, and the direct link.
 
 ## Repository layout
 
@@ -169,6 +186,7 @@ Recreatable runtime caches:
 - `runtime/managed-ids.json`
 - `runtime/uptime-kuma-status.json`
 - `runtime/palworld-players.json`
+- `runtime/daily-summary-state.json`
 
 ## Optional runtime tuning
 
@@ -189,6 +207,10 @@ Defaults are documented in `.env.example`:
 - `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000` controls player join/leave polling.
 - `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS=120000` requires a player join/leave state to stay stable before a Discord notice is posted.
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000` controls the global `/metrics-palworld` cooldown.
+- `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro` controls the recap microsite base URL.
+- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary.
+- `GAYLEMON_DAILY_SUMMARY_HOUR=1` and `GAYLEMON_DAILY_SUMMARY_MINUTE=0` control the automatic post time.
+- `GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES=🐾・palworld` controls where the recap is posted. Prefer `GAYLEMON_DAILY_SUMMARY_CHANNEL_IDS` if names ever become ambiguous.
 
 ## Public GitHub readiness
 

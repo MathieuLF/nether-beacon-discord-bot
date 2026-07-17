@@ -32,12 +32,17 @@ test('Pokédex slash command options expose autocomplete', () => {
 
 test('Palworld slash commands expose public metrics and staff announcement', () => {
   assert.ok(PUBLIC_COMMAND_NAMES.has('metrics-palworld'));
+  assert.ok(PUBLIC_COMMAND_NAMES.has('resume-hier'));
   assert.ok(STAFF_COMMAND_NAMES.has('announce-palworld'));
   assert.ok(!POKEDEX_COMMAND_NAMES.has('metrics-palworld'));
 
   const metrics = commandPayload.find((entry) => entry.name === 'metrics-palworld');
   assert.ok(metrics, 'missing metrics-palworld command');
   assert.equal(metrics.default_member_permissions, undefined);
+
+  const summary = commandPayload.find((entry) => entry.name === 'resume-hier');
+  assert.ok(summary, 'missing resume-hier command');
+  assert.equal(summary.default_member_permissions, undefined);
 
   const announce = commandPayload.find((entry) => entry.name === 'announce-palworld');
   assert.ok(announce, 'missing announce-palworld command');
