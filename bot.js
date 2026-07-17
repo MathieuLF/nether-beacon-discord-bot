@@ -30,6 +30,7 @@ const {
   createAdminState,
   readJson,
   updateRuntimeFiles: writeRuntimeFiles,
+  writeJson,
 } = require('./lib/runtime-state');
 const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
 const {
@@ -51,6 +52,14 @@ const {
   savePalworldPlayerState,
   sendPalworldAnnouncement,
 } = require('./lib/palworld-rest');
+const {
+  SUMMARY_COMMAND_NAME,
+  buildDailySummaryMessage,
+  createDailySummarySettings,
+  getPreviousLocalDateKey,
+  inspectSummaryAvailability,
+  shouldRunDailySummary,
+} = require('./lib/daily-summary');
 const {
   autocompletePokedex,
   formatAbilitySummary,
@@ -99,6 +108,14 @@ const UPTIME_KUMA_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_UPTIME_
 const UPTIME_KUMA_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS, 10000);
 const UPTIME_KUMA_STATE_PATH = path.join(paths.runtimeDir, 'uptime-kuma-status.json');
 const PALWORLD_CHANNEL_NAME = process.env.BOT_PALWORLD_CHANNEL_NAME?.trim() || UPTIME_KUMA_STATUS_CHANNEL_NAME;
+const dailySummarySettings = createDailySummarySettings(
+  {
+    ...process.env,
+    BOT_PALWORLD_CHANNEL_NAME: PALWORLD_CHANNEL_NAME,
+    BOT_TIMEZONE,
+  },
+  plan,
+);
 const PALWORLD_REST_API_URL = process.env.BOT_PALWORLD_REST_API_URL?.trim() || '';
 const PALWORLD_REST_API_USERNAME = process.env.BOT_PALWORLD_REST_API_USERNAME?.trim() || '';
 const PALWORLD_REST_API_PASSWORD = process.env.BOT_PALWORLD_REST_API_PASSWORD || '';
@@ -185,6 +202,48 @@ const state = createAdminState({
   version: pkg.version,
   guildId: GUILD_ID,
 });
+
+const readDailySummaryState = () => {
+  const payload = readJson(paths.dailySummaryStatePath);
+  if (payload && typeof payload === 'object' && payload.dates && typeof payload.dates === 'object') {
+    return payload;
+  }
+
+  return {
+    version: 1,
+    guildId: GUILD_ID,
+    dates: {},
+  };
+};
+
+const writeDailySummaryState = (payload) => {
+  writeJson(paths.dailySummaryStatePath, {
+    version: 1,
+    guildId: GUILD_ID,
+    ...payload,
+  });
+};
+
+const dailySummaryState = readDailySummaryState();
+
+const hasDailySummaryBeenSent = (dateKey, channelId) =>
+  Boolean(dailySummaryState.dates?.[dateKey]?.channels?.[channelId]?.sentAt);
+
+const markDailySummarySent = (dateKey, channel, availability) => {
+  if (!dailySummaryState.dates[dateKey]) {
+    dailySummaryState.dates[dateKey] = { channels: {} };
+  }
+
+  dailySummaryState.dates[dateKey].channels[channel.id] = {
+    channelId: channel.id,
+    channelName: channel.name || null,
+    sentAt: new Date().toISOString(),
+    verified: Boolean(availability?.ok),
+    detail: availability?.detail || null,
+  };
+
+  writeDailySummaryState(dailySummaryState);
+};
 
 const withTimeout = async (promise, timeoutMs, label) => {
   let timer = null;
@@ -356,6 +415,180 @@ const sendMessageToChannel = async (guild, channelId, message, options = {}) => 
 
 const sendLog = async (guild, message) => sendMessageToChannel(guild, getLogChannelId(guild), message);
 const sendEventLog = async (guild, message) => sendMessageToChannel(guild, getEventChannelId(guild), message);
+
+const normalizeSummaryChannelName = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^\p{Letter}\p{Number}]+/gu, '')
+    .toLocaleLowerCase('fr-CA');
+
+const isSendableTextChannel = (channel) =>
+  channel?.isTextBased?.() && typeof channel.send === 'function';
+
+const resolveDailySummaryChannels = async (guild, forCommand = false) => {
+  const ids = forCommand
+    ? dailySummarySettings.commandChannelIds
+    : dailySummarySettings.channelIds;
+  const names = forCommand
+    ? dailySummarySettings.commandChannelNames
+    : dailySummarySettings.channelNames;
+  const normalizedNames = new Set(names.map(normalizeSummaryChannelName).filter(Boolean));
+  const channels = new Map();
+
+  await guild.channels.fetch().catch(() => undefined);
+
+  for (const id of ids) {
+    const channel = await guild.channels.fetch(id).catch(() => null);
+    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
+  }
+
+  for (const name of names) {
+    const managedId = findManagedChannelIdByName(guild, name);
+    if (!managedId) continue;
+
+    const channel = await guild.channels.fetch(managedId).catch(() => null);
+    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
+  }
+
+  for (const channel of guild.channels.cache.values()) {
+    if (!isSendableTextChannel(channel)) continue;
+    if (normalizedNames.has(normalizeSummaryChannelName(channel.name))) {
+      channels.set(channel.id, channel);
+    }
+  }
+
+  return [...channels.values()];
+};
+
+const sendDailySummaryToChannels = async (guild, dateKey, channels, origin) => {
+  const availability = await inspectSummaryAvailability(dailySummarySettings, dateKey);
+  const payload = buildDailySummaryMessage(dailySummarySettings, dateKey, availability, origin);
+  const sentChannels = [];
+
+  for (const channel of channels) {
+    if (!isSendableTextChannel(channel)) continue;
+    await channel.send(payload);
+    sentChannels.push(channel);
+
+    if (origin === 'scheduled') {
+      markDailySummarySent(dateKey, channel, availability);
+    }
+  }
+
+  state.lastDailySummary = {
+    at: new Date().toISOString(),
+    dateKey,
+    origin,
+    channels: sentChannels.map((channel) => channel.id),
+    verified: Boolean(availability.ok),
+    detail: availability.detail,
+  };
+  updateRuntimeFiles();
+
+  return { availability, sentChannels };
+};
+
+const handleDailySummaryCommand = async (interaction, guild) => {
+  const allowedChannels = await resolveDailySummaryChannels(guild, true);
+  const isAllowed = allowedChannels.some((channel) => channel.id === interaction.channelId);
+
+  if (!isAllowed) {
+    const channelList = allowedChannels.length
+      ? allowedChannels.map((channel) => `<#${channel.id}>`).join(', ')
+      : dailySummarySettings.commandChannelNames.map((name) => `#${name}`).join(', ');
+    await interaction.reply({
+      content: formatBotMessage('📊 Résumé Gaylemon', [
+        `Utilise cette commande dans ${channelList || 'le salon Palworld configuré'}.`,
+      ]),
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferReply();
+  const dateKey = getPreviousLocalDateKey(new Date(), dailySummarySettings.timeZone);
+  const availability = await inspectSummaryAvailability(dailySummarySettings, dateKey);
+  await interaction.editReply(buildDailySummaryMessage(dailySummarySettings, dateKey, availability, 'manual'));
+  state.lastDailySummary = {
+    at: new Date().toISOString(),
+    dateKey,
+    origin: 'manual',
+    channels: [interaction.channelId],
+    verified: Boolean(availability.ok),
+    detail: availability.detail,
+  };
+  updateRuntimeFiles();
+  await sendLog(guild, formatBotMessage('📊 Résumé Gaylemon manuel', [
+    formatLine('Salon', interaction.channel?.name || interaction.channelId),
+    formatLine('Journée', dateKey),
+    formatLine('Vérifié', availability.ok ? 'oui' : 'non'),
+  ]));
+};
+
+const runDailySummarySchedulerTick = async (guild, origin) => {
+  const schedule = shouldRunDailySummary(new Date(), dailySummarySettings);
+  if (!schedule.due) return;
+
+  const channels = await resolveDailySummaryChannels(guild, false);
+  if (!channels.length) {
+    throw new Error(`aucun salon de résumé Gaylemon trouvé (${dailySummarySettings.channelNames.join(', ')})`);
+  }
+
+  const pendingChannels = channels.filter((channel) => !hasDailySummaryBeenSent(schedule.dateKey, channel.id));
+  if (!pendingChannels.length) return;
+
+  const { availability, sentChannels } = await sendDailySummaryToChannels(guild, schedule.dateKey, pendingChannels, 'scheduled');
+  await sendLog(guild, formatBotMessage('📊 Résumé Gaylemon quotidien', [
+    formatLine('Origine', origin),
+    formatLine('Journée', schedule.dateKey),
+    formatLine('Salons', sentChannels.map((channel) => `<#${channel.id}>`).join(', ')),
+    formatLine('Vérifié', availability.ok ? 'oui' : 'non'),
+  ]));
+};
+
+let dailySummaryPollTimer = null;
+let dailySummaryPollInFlight = false;
+
+const startDailySummaryScheduler = (guild) => {
+  if (dailySummaryPollTimer) return;
+
+  dailySummaryPollTimer = setInterval(async () => {
+    if (dailySummaryPollInFlight) return;
+    dailySummaryPollInFlight = true;
+
+    try {
+      const latestGuild = client.guilds.cache.get(GUILD_ID) || guild;
+      await runDailySummarySchedulerTick(latestGuild, 'timer');
+    } catch (error) {
+      await sendLog(guild, formatBotMessage('⚠️ Résumé Gaylemon non publié', [
+        formatLine('Erreur', error.message),
+      ]));
+      state.lastError = `daily-summary: ${error.message}`;
+      updateRuntimeFiles();
+    } finally {
+      dailySummaryPollInFlight = false;
+    }
+  }, 60 * 1000);
+
+  dailySummaryPollTimer.unref();
+  setTimeout(async () => {
+    if (dailySummaryPollInFlight) return;
+    dailySummaryPollInFlight = true;
+
+    try {
+      await runDailySummarySchedulerTick(guild, 'startup');
+    } catch (error) {
+      state.lastError = `daily-summary-startup: ${error.message}`;
+      updateRuntimeFiles();
+      await sendLog(guild, formatBotMessage('⚠️ Résumé Gaylemon non publié au démarrage', [
+        formatLine('Erreur', error.message),
+      ]));
+    } finally {
+      dailySummaryPollInFlight = false;
+    }
+  }, 10 * 1000).unref();
+};
 
 let uptimeKumaPollTimer = null;
 let uptimeKumaBootstrapTimer = null;
@@ -967,6 +1200,7 @@ const summarizeStatus = (guild) => {
     formatLine('Resync', formatTimestamp(state.lastSync?.at)),
     formatLine('Audit', formatTimestamp(state.lastAudit?.at)),
     formatLine('Stats', formatTimestamp(state.lastStats?.at)),
+    formatLine('Résumé Gaylemon', state.lastDailySummary ? `${state.lastDailySummary.dateKey} (${formatTimestamp(state.lastDailySummary.at)})` : 'en attente'),
     formatLine('Palworld', UPTIME_KUMA_STATUS_PAGE_URL ? `${state.lastUptimeKuma?.status || 'en attente'} (${formatTimestamp(state.lastUptimeKuma?.at)})` : 'désactivé'),
     formatLine('Palworld REST', isPalworldRestConfigured() ? `${state.lastPalworldRest?.status || 'en attente'} (${formatTimestamp(state.lastPalworldRest?.at)})` : 'désactivé'),
     formatLine('Membre', state.lastMemberEvent || 'aucun'),
@@ -1213,10 +1447,11 @@ const helpText = [
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
   '- Palworld: metrics publics, connexions/déconnexions stabilisées et annonces Discord vers jeu',
+  '- résumé Gaylemon de la veille publié automatiquement vers 01:00 dans Palworld',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
   `- commande admin/modo: ${formatCommandList(['/announce-palworld'])}`,
-  `- commandes Palworld publiques: ${formatCommandList(['/metrics-palworld'])}`,
+  `- commandes Palworld publiques: ${formatCommandList(['/metrics-palworld', `/${SUMMARY_COMMAND_NAME}`])}`,
   `- commandes Pokédex publiques: ${formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon'])}`,
   '',
   '**Prérequis**',
@@ -1249,7 +1484,7 @@ const buildStartupLogMessage = (startupReport) =>
     formatCommandList(['/announce-palworld']),
     '',
     '**Commandes publiques**',
-    formatCommandList(['/metrics-palworld', '/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon']),
+    formatCommandList(['/metrics-palworld', `/${SUMMARY_COMMAND_NAME}`, '/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon']),
     '',
     '**À savoir**',
     '- Les logs techniques arrivent ici.',
@@ -1273,6 +1508,7 @@ client.once('clientReady', async () => {
 
     await refreshStatsDisplaySafe(guild, 'startup');
     startStatsScheduler();
+    startDailySummaryScheduler(guild);
     startUptimeKumaScheduler(guild);
     startPalworldPlayerScheduler(guild);
 
@@ -1353,6 +1589,40 @@ client.on('interactionCreate', async (interaction) => {
 
   if (interaction.commandName === 'metrics-palworld') {
     await runPalworldMetricsCommand(interaction);
+    return;
+  }
+
+  if (interaction.commandName === SUMMARY_COMMAND_NAME) {
+    const cooldownSeconds = getPublicCommandCooldown(interaction.user.id);
+    if (cooldownSeconds > 0) {
+      await interaction.reply({
+        content: formatBotMessage('⏳ Doucement', [
+          `Attends encore ${cooldownSeconds}s avant une autre commande publique.`,
+        ]),
+        ephemeral: true,
+      }).catch(() => undefined);
+      return;
+    }
+
+    try {
+      const guild = await refreshGuild();
+      await handleDailySummaryCommand(interaction, guild);
+    } catch (error) {
+      state.lastError = `daily-summary-command: ${error.message}`;
+      updateRuntimeFiles();
+      const payload = {
+        content: formatBotMessage('⚠️ Résumé Gaylemon indisponible', [
+          formatLine('Message', error.message),
+        ]),
+        ephemeral: true,
+      };
+
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply(payload).catch(() => undefined);
+      } else {
+        await interaction.reply(payload).catch(() => undefined);
+      }
+    }
     return;
   }
 

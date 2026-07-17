@@ -48,6 +48,8 @@ Nom du stack: `NeatherBeacon`
 - commande publique `/metrics-palworld` avec cooldown global de 4 minutes
 - surveillance des connexions/deconnexions Palworld via l API REST officielle, apres baseline silencieuse et fenetre de stabilite
 - commande staff `/announce-palworld` pour publier une annonce dans Discord et la relayer en jeu via `POST /announce`
+- publication automatique du resume Gaylemon de la veille vers 01:00 dans le salon Palworld
+- commande publique `/resume-hier` dans le salon Palworld
 - erreurs API Palworld REST signalees seulement dans le salon securise des logs
 - logs entree/sortie/deplacement vocal
 - commandes slash admin:
@@ -63,6 +65,7 @@ Nom du stack: `NeatherBeacon`
   - `/announce-palworld`
 - commandes slash publiques Palworld:
   - `/metrics-palworld`
+  - `/resume-hier`
 - Muse auto-heberge avec persistance de donnees
 
 ## Prerequis
@@ -143,6 +146,7 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
 - `/diag`
 - `/cache-status`
 - `/metrics-palworld`
+- `/resume-hier` dans le salon Palworld
 - `/announce-palworld` dans le salon Palworld, reserve admin/modo
 
 Le bot ne supprime pas les canaux, roles ou permissions deja presents. En cas de doublon ou d ambiguite, il signale le conflit et s arrete sur ce point au lieu de deviner.
@@ -180,6 +184,36 @@ Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALW
 - si l API Palworld ne repond plus, Alpha annonce la panne et le retour seulement dans le salon securise des logs
 - apres une panne API, Alpha rebaseline les joueurs sans publier de faux depart ou fausse arrivee
 - `/announce-palworld` doit etre utilisee dans le salon Palworld par un admin ou modo; elle publie le message dans Discord puis appelle `POST /announce` pour relayer en jeu
+
+## Resume Quotidien Gaylemon
+
+Alpha calcule la veille selon le fuseau configure et publie le lien direct vers:
+
+```text
+https://gaylemon.mathieu.pro/resume?jour=YYYY-MM-DD
+```
+
+Configuration par defaut:
+
+- heure: `01:00`
+- fuseau: `America/Toronto`
+- salon: `🐾・palworld`
+- commande publique: `/resume-hier`
+- etat anti-doublon: `runtime/daily-summary-state.json`
+
+Variables:
+
+- `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro`
+- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`
+- `GAYLEMON_DAILY_SUMMARY_HOUR=1`
+- `GAYLEMON_DAILY_SUMMARY_MINUTE=0`
+- `GAYLEMON_DAILY_SUMMARY_POST_WINDOW_MINUTES=120`
+- `GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS=5000`
+- `GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES=🐾・palworld`
+- `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES=🐾・palworld`
+- `GAYLEMON_DAILY_SUMMARY_CHANNEL_IDS=` et `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS=` sont preferables si les noms deviennent ambigus.
+
+Le bot sonde `/resume?jour=...` et `data/public-events-index.json` avant publication. Le message public reste volontairement court: titre, phrase de recap et lien direct.
 
 ## Update
 
@@ -226,6 +260,11 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000`: frequence de lecture de `GET /players`
 - `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS=120000`: delai de stabilite avant de publier une connexion/deconnexion Palworld
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000`: cooldown global de `/metrics-palworld`
+- `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro`: base publique du microsite Gaylemon
+- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`: fuseau du calcul de la veille
+- `GAYLEMON_DAILY_SUMMARY_HOUR=1`: heure locale de publication du resume
+- `GAYLEMON_DAILY_SUMMARY_MINUTE=0`: minute locale de publication du resume
+- `GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES=🐾・palworld`: salon cible de publication
 
 ## Build Sans Redemarrage
 
@@ -251,6 +290,7 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
 - verifier `C:\Projects\nether-beacon\runtime\managed-ids.json` apres gros changement manuel de structure
 - verifier `C:\Projects\nether-beacon\runtime\uptime-kuma-status.json` si les annonces Palworld se repetent ou ne partent pas
 - verifier `C:\Projects\nether-beacon\runtime\palworld-players.json` si les connexions/deconnexions Palworld semblent decalees
+- verifier `C:\Projects\nether-beacon\runtime\daily-summary-state.json` si le resume Gaylemon se repete ou ne part pas
 - `C:\Projects\nether-beacon\runtime\pokedex-cache` est un cache PokéAPI recréable pour les JSON, evolutions et images
 - garder les tokens Discord valides
 - relancer `/audit` apres tout gros changement manuel du serveur
