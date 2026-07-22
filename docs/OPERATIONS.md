@@ -44,7 +44,7 @@ Nom du stack: `NeatherBeacon`
   - `/type`
   - `/random-pokemon`
 - `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite mis en cache, types, abilities, stats, species, labels, egg groups et evolution quand disponible
-- commande publique `/metrics-palworld` avec cooldown global de 4 minutes
+- commande publique `/metrics-palworld` via les JSON publics filtres Gaylemon, avec cooldown global de 4 minutes
 - commande staff `/announce-palworld` pour publier une annonce dans Discord et la relayer en jeu via `POST /announce`
 - publication automatique du resume Gaylemon de la veille vers 01:00 dans le salon Palworld
 - commande publique `/resume-hier` dans le salon Palworld
@@ -118,7 +118,7 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
    - `MUSE_SPOTIFY_CLIENT_ID`
    - `MUSE_SPOTIFY_CLIENT_SECRET`
    - `BOT_TIMEZONE=America/Toronto`
-   - `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME`, `BOT_PALWORLD_REST_API_PASSWORD` si les metrics et annonces en jeu doivent tourner
+  - `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME`, `BOT_PALWORLD_REST_API_PASSWORD` seulement si les annonces staff doivent etre relayees en jeu
 4. Verifier la config:
    - `npm run validate:config`
    - `npm run test`
@@ -155,14 +155,21 @@ La categorie `Stats` est geree au runtime par le bot admin, reste visible pour t
 Les evenements de presence et de vocal sont debounces par defaut pendant 15 secondes avant de rafraichir les Stats, afin d eviter des rafales d ecritures Discord. La commande `/stats-refresh` reste immediate.
 Les commandes `/diag` et `/cache-status` sont ephemeres, reservees admin, et ne publient ni secrets ni contenu de fichiers.
 
-## Palworld Via API REST
+## Palworld Public Et API REST Admin
 
-Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALWORLD_REST_API_PASSWORD` sont renseignes, Alpha active les commandes Palworld REST.
+La commande publique `/metrics-palworld` lit les JSON filtres du microsite Gaylemon:
 
-- `/metrics-palworld` lit `GET /metrics` et publie les derniers metrics dans Discord
-- la commande est publique, visible par tous, mais limitee globalement par `BOT_PALWORLD_METRICS_COOLDOWN_MS` (4 minutes par defaut)
-- `/announce-palworld` doit etre utilisee dans le salon Palworld par un admin ou modo; elle publie le message dans Discord puis appelle `POST /announce` pour relayer en jeu
-- Alpha n effectue aucune surveillance automatique de l API REST; les appels REST partent seulement quand une commande Palworld est utilisee
+- `https://gaylemon.mathieu.pro/data/public-availability.json`
+- `https://gaylemon.mathieu.pro/data/public-metrics.json`
+
+Elle ne depend pas de l API REST admin locale. Elle affiche seulement les noms publics valides deja exposes par ces JSON, jamais `accountName`, `playerId`, `userId`, Steam ID, IP, coordonnees ou chemin systeme.
+
+Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALWORLD_REST_API_PASSWORD` sont renseignes, Alpha active uniquement les actions staff Palworld REST.
+
+- `/announce-palworld` doit etre utilisee dans un salon autorise par un admin ou modo; elle publie le message dans Discord puis appelle `POST /announce` pour relayer en jeu
+- les appels admin REST ont un timeout court, un retry unique sur erreur reseau transitoire, un circuit breaker court et un cooldown global
+- si le tunnel local est ferme, la commande echoue proprement sans detail technique dans Discord
+- Alpha n effectue aucune surveillance automatique de l API REST admin
 
 ## Resume Quotidien Gaylemon
 
@@ -227,12 +234,17 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000`: intervalle minimal entre deux renommages des salons vocaux Stats
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30`: duree de validite des JSON PokéAPI
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880`: taille maximale d un asset Pokédex telecharge
-- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld`: salon cible pour les metrics et annonces Palworld REST
-- `BOT_PALWORLD_REST_API_URL=`: URL de base de l API REST Palworld, par exemple `http://host.docker.internal:8212/v1/api` si l API ou le tunnel SSH est expose sur l hote Docker Desktop
+- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld`: salon cible pour les metrics publics et annonces Palworld
+- `BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS=5000`: delai maximal de lecture des JSON publics Gaylemon
+- `BOT_PALWORLD_PUBLIC_CACHE_TTL_MS=15000`: cache court des JSON publics status/joueurs
+- `BOT_PALWORLD_REST_API_URL=`: URL de base de l API REST admin Palworld, par exemple `http://127.0.0.1:8212/v1/api` ou une URL de tunnel local exposee au conteneur
 - `BOT_PALWORLD_REST_API_USERNAME=`: utilisateur Basic Auth Palworld REST
 - `BOT_PALWORLD_REST_API_PASSWORD=`: mot de passe Basic Auth Palworld REST
-- `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Palworld REST
+- `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=5000`: delai maximal d appel HTTP vers Palworld REST admin
+- `BOT_PALWORLD_REST_CIRCUIT_BREAKER_MS=30000`: pause courte apres panne de l API REST admin
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000`: cooldown global de `/metrics-palworld`
+- `BOT_PALWORLD_ADMIN_COOLDOWN_MS=30000`: cooldown global des commandes admin Palworld
+- `BOT_PALWORLD_ADMIN_CHANNEL_NAMES=🐾・palworld`: salons autorises pour les commandes admin Palworld
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro`: base publique du microsite Gaylemon
 - `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`: fuseau du calcul de la veille
 - `GAYLEMON_DAILY_SUMMARY_HOUR=1`: heure locale de publication du resume
@@ -281,10 +293,15 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
 - si le bot refuse de creer un salon avec un conflit probable:
   - verifier les noms proches sans accents ou avec emoji different
   - lancer `npm run capture:ids` si ce salon est bien celui qui doit etre gere
-- si `/metrics-palworld` repond que REST est desactive:
+- si `/metrics-palworld` est indisponible:
+  - verifier `GAYLEMON_PUBLIC_BASE_URL`
+  - verifier l acces a `/data/public-availability.json`
+  - verifier l acces a `/data/public-metrics.json`
+- si `/announce-palworld` echoue:
+  - verifier le tunnel local vers l API REST admin
   - verifier `BOT_PALWORLD_REST_API_URL`
   - verifier `BOT_PALWORLD_REST_API_USERNAME`
-  - verifier `BOT_PALWORLD_REST_API_PASSWORD`
+  - verifier que le mot de passe REST est configure localement
 
 ## Assets
 

@@ -1,9 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { config } = require('dotenv');
+const { validateBotEnvironment } = require('./lib/env');
+
+config();
+validateBotEnvironment(process.env);
+
 const { paths } = require('./lib/config');
 
-const requiredEnv = ['DISCORD_GUILD_ID', 'DISCORD_BOT_TOKEN', 'MUSE_DISCORD_TOKEN'];
+const requiredEnv = ['MUSE_DISCORD_TOKEN'];
 for (const envName of requiredEnv) {
   if (!process.env[envName]?.trim()) {
     throw new Error(`Missing required environment variable ${envName}`);

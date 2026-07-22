@@ -40,7 +40,7 @@ This is a self-hosted side project for a private Discord server.
 | Community channels | dedicated public spaces for Palworld and Pokémon GO conversations |
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
-| Palworld | Public `/metrics-palworld` and staff `/announce-palworld` relayed in game |
+| Palworld | Public `/metrics-palworld` from filtered Gaylemon JSON and staff `/announce-palworld` relayed in game |
 | Gaylemon daily recap | Automatic `/resume?jour=YYYY-MM-DD` link posted around 01:00 in Palworld, plus `/resume-hier` |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
@@ -64,7 +64,7 @@ This is a self-hosted side project for a private Discord server.
 
 ### Public Palworld
 
-- `/metrics-palworld` - show the latest Palworld REST metrics publicly. This command has a global 4-minute cooldown across the server.
+- `/metrics-palworld` - show the latest public Gaylemon Palworld status and metrics. This command has a global 4-minute cooldown across the server.
 - `/resume-hier` - post the Gaylemon recap link for yesterday in the configured Palworld channel.
 
 ### Public Pokédex
@@ -80,12 +80,20 @@ Use English Pokémon names.
 
 Pokédex JSON and artwork are cached under `runtime/pokedex-cache`.
 
-## Palworld REST integration
+## Palworld public data and admin REST
 
-When the Palworld REST API is configured, Alpha can read and publish requested game signals without exposing the API publicly.
+Public Palworld commands read the filtered Gaylemon microsite JSON by default:
 
-- `/metrics-palworld` reads `GET /metrics` and posts server FPS, players, frame time, uptime, in-game days and bases.
-- `/announce-palworld` calls `POST /announce` and then posts the same announcement in the Palworld Discord channel.
+- `https://gaylemon.mathieu.pro/data/public-availability.json`
+- `https://gaylemon.mathieu.pro/data/public-metrics.json`
+
+`/metrics-palworld` does not require the local Palworld admin REST API. It posts only public names already present in the filtered JSON and never falls back to private identifiers.
+
+The local admin REST API is used only for staff actions:
+
+- `/announce-palworld` is reserved to admins/moderators, limited to configured channels, protected by cooldown, and calls `POST /announce`.
+- If the local tunnel or API is closed, the command fails with a short non-technical Discord message.
+- Do not log or post raw `/players` responses, IPs, Steam IDs, `playerId`, `userId`, `accountName`, coordinates, system paths or passwords.
 
 ## Gaylemon daily recap
 
@@ -117,7 +125,8 @@ The bot checks `/resume?jour=...` and `data/public-events-index.json` before sen
 ├── lib/
 │   ├── reconcile.js          # additive Discord reconciliation
 │   ├── managed-ids.js        # runtime ID registry support
-│   ├── palworld-rest.js      # Palworld REST metrics and announcements
+│   ├── palworld-public.js    # filtered Gaylemon public JSON reader
+│   ├── palworld-rest.js      # staff-only Palworld admin REST announcements
 │   └── pokedex.js            # cached PokéAPI integration
 ├── scripts/
 │   ├── capture-managed-ids.js
@@ -179,11 +188,16 @@ Defaults are documented in `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000` limits Stats voice-channel renames.
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30` controls JSON cache age.
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880` rejects oversized Pokédex artwork downloads.
-- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld metrics and Discord announcements are posted.
-- `BOT_PALWORLD_REST_API_URL=` enables Palworld REST features when set to the server API base URL, for example `http://host.docker.internal:8212/v1/api` when the API or SSH tunnel is exposed on the Docker Desktop host.
-- `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth.
-- `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000` limits Palworld REST calls.
+- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld public metrics and Discord announcements are posted.
+- `BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS=5000` limits Gaylemon public JSON reads.
+- `BOT_PALWORLD_PUBLIC_CACHE_TTL_MS=15000` caches public status/player JSON briefly.
+- `BOT_PALWORLD_REST_API_URL=` enables staff-only Palworld admin REST features when set to the local API base URL, for example `http://127.0.0.1:8212/v1/api` or the host-exposed tunnel URL.
+- `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth and must never be committed.
+- `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=5000` limits staff-only Palworld REST calls.
+- `BOT_PALWORLD_REST_CIRCUIT_BREAKER_MS=30000` briefly stops repeated admin REST calls after a local API failure.
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000` controls the global `/metrics-palworld` cooldown.
+- `BOT_PALWORLD_ADMIN_COOLDOWN_MS=30000` controls the global cooldown for staff Palworld admin commands.
+- `BOT_PALWORLD_ADMIN_CHANNEL_NAMES=🐾・palworld` allowlists where staff Palworld admin commands can run. Prefer `BOT_PALWORLD_ADMIN_CHANNEL_IDS` if names ever become ambiguous.
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro` controls the recap microsite base URL.
 - `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary.
 - `GAYLEMON_DAILY_SUMMARY_HOUR=1` and `GAYLEMON_DAILY_SUMMARY_MINUTE=0` control the automatic post time.
