@@ -6,7 +6,7 @@ services:
     image: nether-beacon:latest
     container_name: nether-beacon
     env_file: .env
-    restart: unless-stopped
+    restart: always
     volumes:
       - muse-data:/data
       - ./runtime:/bot/runtime

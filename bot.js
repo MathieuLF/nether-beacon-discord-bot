@@ -1,5 +1,4 @@
 const fs = require('fs');
-const path = require('path');
 const {
   Client,
   ChannelType,
@@ -34,22 +33,10 @@ const {
 } = require('./lib/runtime-state');
 const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
 const {
-  fetchUptimeKumaSnapshot,
-  loadUptimeKumaState,
-  planUptimeKumaAnnouncements,
-  planUptimeKumaFetchFailure,
-  saveUptimeKumaState,
-} = require('./lib/uptime-kuma-status');
-const {
   fetchPalworldMetrics,
-  fetchPalworldPlayers,
   formatPalworldAnnouncementForDiscord,
   formatPalworldMetrics,
-  loadPalworldPlayerState,
   normalizeAnnouncementMessage,
-  planPalworldPlayerAnnouncements,
-  planPalworldPlayerFetchFailure,
-  savePalworldPlayerState,
   sendPalworldAnnouncement,
 } = require('./lib/palworld-rest');
 const {
@@ -102,12 +89,7 @@ const STATS_VOICE_REFRESH_INTERVAL_MS = readPositiveInteger(
 );
 const STATS_EVENT_DEBOUNCE_MS = readPositiveInteger(process.env.BOT_STATS_EVENT_DEBOUNCE_MS, 15000);
 const STATS_MEMBER_FETCH_TIMEOUT_MS = 10000;
-const UPTIME_KUMA_STATUS_PAGE_URL = process.env.BOT_UPTIME_KUMA_STATUS_PAGE_URL?.trim() || '';
-const UPTIME_KUMA_STATUS_CHANNEL_NAME = process.env.BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME?.trim() || '🐾・palworld';
-const UPTIME_KUMA_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_POLL_INTERVAL_MS, 60000);
-const UPTIME_KUMA_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS, 10000);
-const UPTIME_KUMA_STATE_PATH = path.join(paths.runtimeDir, 'uptime-kuma-status.json');
-const PALWORLD_CHANNEL_NAME = process.env.BOT_PALWORLD_CHANNEL_NAME?.trim() || UPTIME_KUMA_STATUS_CHANNEL_NAME;
+const PALWORLD_CHANNEL_NAME = process.env.BOT_PALWORLD_CHANNEL_NAME?.trim() || '🐾・palworld';
 const dailySummarySettings = createDailySummarySettings(
   {
     ...process.env,
@@ -120,10 +102,7 @@ const PALWORLD_REST_API_URL = process.env.BOT_PALWORLD_REST_API_URL?.trim() || '
 const PALWORLD_REST_API_USERNAME = process.env.BOT_PALWORLD_REST_API_USERNAME?.trim() || '';
 const PALWORLD_REST_API_PASSWORD = process.env.BOT_PALWORLD_REST_API_PASSWORD || '';
 const PALWORLD_REST_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS, 10000);
-const PALWORLD_PLAYER_POLL_INTERVAL_MS = readPositiveInteger(process.env.BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS, 60000);
-const PALWORLD_PLAYER_EVENT_GRACE_MS = readPositiveInteger(process.env.BOT_PALWORLD_PLAYER_EVENT_GRACE_MS, 2 * 60 * 1000);
 const PALWORLD_METRICS_COOLDOWN_MS = readPositiveInteger(process.env.BOT_PALWORLD_METRICS_COOLDOWN_MS, 4 * 60 * 1000);
-const PALWORLD_PLAYER_STATE_PATH = path.join(paths.runtimeDir, 'palworld-players.json');
 const MOD_ROLE_NAME = 'Mod';
 const STATS_CHANNEL_PREFIXES = {
   date: '📅・',
@@ -398,7 +377,6 @@ const refreshGuild = async () => {
 const getLogChannelId = (guild) => state.logChannelId || findManagedLogChannelId(guild);
 const getEventChannelId = (guild) => state.eventChannelId || findManagedChannelIdByName(guild, plan.eventChannelName);
 const getWelcomeChannelId = (guild) => findManagedChannelIdByName(guild, WELCOME_CHANNEL_NAME);
-const getUptimeKumaStatusChannelId = (guild) => findManagedChannelIdByName(guild, UPTIME_KUMA_STATUS_CHANNEL_NAME);
 const getPalworldChannelId = (guild) => findManagedChannelIdByName(guild, PALWORLD_CHANNEL_NAME);
 
 const sendMessageToChannel = async (guild, channelId, message, options = {}) => {
@@ -590,99 +568,6 @@ const startDailySummaryScheduler = (guild) => {
   }, 10 * 1000).unref();
 };
 
-let uptimeKumaPollTimer = null;
-let uptimeKumaBootstrapTimer = null;
-let uptimeKumaPollInFlight = false;
-
-const pollUptimeKumaStatus = async (guild, origin) => {
-  if (!UPTIME_KUMA_STATUS_PAGE_URL || uptimeKumaPollInFlight) return;
-
-  uptimeKumaPollInFlight = true;
-
-  try {
-    const snapshot = await fetchUptimeKumaSnapshot({
-      statusPageUrl: UPTIME_KUMA_STATUS_PAGE_URL,
-      timeoutMs: UPTIME_KUMA_FETCH_TIMEOUT_MS,
-    });
-    const previousState = loadUptimeKumaState(UPTIME_KUMA_STATE_PATH);
-    const planned = planUptimeKumaAnnouncements(snapshot, previousState);
-
-    state.lastUptimeKuma = {
-      at: snapshot.checkedAt,
-      status: snapshot.overallStatus,
-      title: snapshot.title,
-      events: snapshot.events.length,
-    };
-    updateRuntimeFiles();
-
-    if (!planned.messages.length && !planned.logMessages.length) {
-      saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
-      return;
-    }
-
-    if (planned.messages.length) {
-      const channelId = getUptimeKumaStatusChannelId(guild);
-      if (!channelId) {
-        throw new Error(`managed channel ${UPTIME_KUMA_STATUS_CHANNEL_NAME} not found`);
-      }
-
-      for (const message of planned.messages) {
-        await sendMessageToChannel(guild, channelId, message);
-      }
-    }
-
-    for (const message of planned.logMessages) {
-      await sendLog(guild, message);
-    }
-
-    saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
-  } catch (error) {
-    const previousState = loadUptimeKumaState(UPTIME_KUMA_STATE_PATH);
-    const planned = planUptimeKumaFetchFailure({
-      error,
-      previousState,
-      statusPageUrl: UPTIME_KUMA_STATUS_PAGE_URL,
-    });
-
-    state.lastUptimeKuma = {
-      at: planned.state.updatedAt,
-      status: 'kuma-unreachable',
-      title: 'Uptime Kuma',
-      events: 0,
-    };
-    state.lastError = `uptime-kuma:${origin}: ${error.message}`;
-    updateRuntimeFiles();
-
-    for (const message of planned.logMessages) {
-      await sendLog(guild, message);
-    }
-
-    saveUptimeKumaState(UPTIME_KUMA_STATE_PATH, planned.state);
-  } finally {
-    uptimeKumaPollInFlight = false;
-  }
-};
-
-const startUptimeKumaScheduler = (guild) => {
-  if (!UPTIME_KUMA_STATUS_PAGE_URL || uptimeKumaPollTimer || uptimeKumaBootstrapTimer) return;
-
-  uptimeKumaBootstrapTimer = setTimeout(async () => {
-    uptimeKumaBootstrapTimer = null;
-    await pollUptimeKumaStatus(guild, 'startup');
-
-    uptimeKumaPollTimer = setInterval(async () => {
-      const cachedGuild = client.guilds.cache.get(GUILD_ID);
-      if (cachedGuild) await pollUptimeKumaStatus(cachedGuild, 'interval');
-    }, UPTIME_KUMA_POLL_INTERVAL_MS);
-    uptimeKumaPollTimer.unref();
-  }, 10000);
-  uptimeKumaBootstrapTimer.unref();
-};
-
-let palworldPlayerPollTimer = null;
-let palworldPlayerBootstrapTimer = null;
-let palworldPlayerPollInFlight = false;
-
 const sendPalworldPublicMessage = async (guild, message) => {
   const channelId = getPalworldChannelId(guild);
   if (!channelId) {
@@ -691,91 +576,6 @@ const sendPalworldPublicMessage = async (guild, message) => {
 
   const sent = await sendMessageToChannel(guild, channelId, message, { allowedMentions: { parse: [] } });
   return Boolean(sent);
-};
-
-const pollPalworldPlayers = async (guild, origin) => {
-  if (!isPalworldRestConfigured() || palworldPlayerPollInFlight) return;
-
-  palworldPlayerPollInFlight = true;
-
-  try {
-    const snapshot = await fetchPalworldPlayers(getPalworldRestOptions());
-    const previousState = loadPalworldPlayerState(PALWORLD_PLAYER_STATE_PATH);
-    const planned = planPalworldPlayerAnnouncements(snapshot, previousState, {
-      eventGraceMs: PALWORLD_PLAYER_EVENT_GRACE_MS,
-    });
-
-    state.lastPalworldRest = {
-      at: snapshot.checkedAt,
-      status: 'players-ok',
-      players: snapshot.players.length,
-    };
-    updateRuntimeFiles();
-
-    if (planned.messages.length && !getPalworldChannelId(guild)) {
-      await sendLog(guild, formatBotMessage('⚠️ Salon Palworld introuvable', [
-        formatLine('Salon attendu', PALWORLD_CHANNEL_NAME),
-        formatLine('Origine', `palworld-players:${origin}`),
-      ]));
-    } else {
-      for (const message of planned.messages) {
-        const sent = await sendPalworldPublicMessage(guild, message);
-        if (sent) {
-          state.lastPalworldPlayerEvent = message.split('\n')[0].replace(/\*/g, '');
-        } else {
-          await sendLog(guild, formatBotMessage('⚠️ Événement Palworld non publié', [
-            formatLine('Salon', PALWORLD_CHANNEL_NAME),
-            formatLine('Origine', `palworld-players:${origin}`),
-          ]));
-        }
-      }
-    }
-
-    for (const message of planned.logMessages) {
-      await sendLog(guild, message);
-    }
-
-    savePalworldPlayerState(PALWORLD_PLAYER_STATE_PATH, planned.state);
-    updateRuntimeFiles();
-  } catch (error) {
-    const previousState = loadPalworldPlayerState(PALWORLD_PLAYER_STATE_PATH);
-    const planned = planPalworldPlayerFetchFailure({
-      error,
-      previousState,
-    });
-
-    state.lastPalworldRest = {
-      at: planned.state.updatedAt,
-      status: 'api-unreachable',
-      players: Object.keys(planned.state.players).length,
-    };
-    state.lastError = `palworld-players:${origin}: ${error.message}`;
-    updateRuntimeFiles();
-
-    for (const message of planned.logMessages) {
-      await sendLog(guild, message);
-    }
-
-    savePalworldPlayerState(PALWORLD_PLAYER_STATE_PATH, planned.state);
-  } finally {
-    palworldPlayerPollInFlight = false;
-  }
-};
-
-const startPalworldPlayerScheduler = (guild) => {
-  if (!isPalworldRestConfigured() || palworldPlayerPollTimer || palworldPlayerBootstrapTimer) return;
-
-  palworldPlayerBootstrapTimer = setTimeout(async () => {
-    palworldPlayerBootstrapTimer = null;
-    await pollPalworldPlayers(guild, 'startup');
-
-    palworldPlayerPollTimer = setInterval(async () => {
-      const cachedGuild = client.guilds.cache.get(GUILD_ID);
-      if (cachedGuild) await pollPalworldPlayers(cachedGuild, 'interval');
-    }, PALWORLD_PLAYER_POLL_INTERVAL_MS);
-    palworldPlayerPollTimer.unref();
-  }, 15000);
-  palworldPlayerBootstrapTimer.unref();
 };
 
 const buildWelcomeMessage = (memberOrMention) =>
@@ -1201,7 +1001,6 @@ const summarizeStatus = (guild) => {
     formatLine('Audit', formatTimestamp(state.lastAudit?.at)),
     formatLine('Stats', formatTimestamp(state.lastStats?.at)),
     formatLine('Résumé Gaylemon', state.lastDailySummary ? `${state.lastDailySummary.dateKey} (${formatTimestamp(state.lastDailySummary.at)})` : 'en attente'),
-    formatLine('Palworld', UPTIME_KUMA_STATUS_PAGE_URL ? `${state.lastUptimeKuma?.status || 'en attente'} (${formatTimestamp(state.lastUptimeKuma?.at)})` : 'désactivé'),
     formatLine('Palworld REST', isPalworldRestConfigured() ? `${state.lastPalworldRest?.status || 'en attente'} (${formatTimestamp(state.lastPalworldRest?.at)})` : 'désactivé'),
     formatLine('Membre', state.lastMemberEvent || 'aucun'),
     formatLine('Vocal', state.lastVoiceEvent || 'aucun'),
@@ -1446,7 +1245,7 @@ const helpText = [
   '- resynchronisation additive des rôles, catégories et salons gérés',
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
-  '- Palworld: metrics publics, connexions/déconnexions stabilisées et annonces Discord vers jeu',
+  '- Palworld: metrics publics et annonces Discord vers jeu',
   '- résumé Gaylemon de la veille publié automatiquement vers 01:00 dans Palworld',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
@@ -1460,7 +1259,7 @@ const helpText = [
   '- Server Members Intent pour le bot admin',
   '- Presence Intent pour les KPI en ligne / absent / déco',
   '- Manage Guild, Manage Roles, Manage Channels pour le bot admin',
-  '- REST API Palworld activée si les commandes et événements Palworld sont utilisés',
+  '- REST API Palworld activée si les commandes Palworld sont utilisées',
   '',
   '**Notes**',
   "- aucune adresse publique n'est nécessaire en v1",
@@ -1509,8 +1308,6 @@ client.once('clientReady', async () => {
     await refreshStatsDisplaySafe(guild, 'startup');
     startStatsScheduler();
     startDailySummaryScheduler(guild);
-    startUptimeKumaScheduler(guild);
-    startPalworldPlayerScheduler(guild);
 
     await sendLog(
       guild,

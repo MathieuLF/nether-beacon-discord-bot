@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, Palworld status and REST signals, diagnostics and Pokédex commands.">
+    <meta name="description" content="NeatherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, Palworld REST commands, diagnostics and Pokédex commands.">
     <meta name="theme-color" content="#ff7a2f">
     <title>NeatherBeacon - Discord bot stack</title>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JEYPY9HE0Q"></script>
@@ -36,7 +36,7 @@
             <div class="eyebrow">Self-hosted Discord stack</div>
             <h1>One beacon for gamers, music, stats and safe diagnostics.</h1>
             <p class="lede">
-              NeatherBeacon keeps Alpha on server operations, public commands, Palworld status and live game signals, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
+              NeatherBeacon keeps Alpha on server operations, public commands, Palworld REST commands, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
             </p>
             <div class="actions">
               <a class="button" href="#quickstart">Start setup</a>
@@ -50,7 +50,7 @@
 mode        additive, non-destructive
 music       Muse 2.11.5
 stats       debounced voice KPIs
-palworld   status + REST signals
+palworld   REST commands
 pokedex     autocomplete + cache
 diagnostics ephemeral, no secrets
 public URL  optional</pre>
@@ -84,12 +84,12 @@ public URL  optional</pre>
               <p>Dedicated public spaces keep Palworld and Pokémon GO conversations easy to find without mixing them into the main chat.</p>
             </article>
             <article class="card">
-              <h3>Palworld status alerts</h3>
-              <p>Alpha polls the public Uptime Kuma page and posts one-shot up, down, maintenance and incident notices in the Palworld channel; Kuma outages stay in admin logs.</p>
+              <h3>Palworld metrics</h3>
+              <p>Alpha reads server metrics on demand and posts public snapshots with a global cooldown.</p>
             </article>
             <article class="card">
-              <h3>Palworld live layer</h3>
-              <p>REST metrics, stabilized player join/leave notices and staff announcements keep the Discord channel connected to the game without exposing secrets.</p>
+              <h3>Palworld announcements</h3>
+              <p>Staff can post a Discord announcement and relay the same message in game without exposing REST credentials.</p>
             </article>
             <article class="card">
               <h3>Safe diagnostics</h3>
@@ -140,14 +140,8 @@ public URL  optional</pre>
             </div>
             <div class="step">
               <div>
-                <strong>Enable Palworld alerts.</strong><br>
-                Set <code>BOT_UPTIME_KUMA_STATUS_PAGE_URL</code> to the published Uptime Kuma status page and keep <code>BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME</code> on the Palworld channel.
-              </div>
-            </div>
-            <div class="step">
-              <div>
                 <strong>Enable Palworld REST.</strong><br>
-                Set <code>BOT_PALWORLD_REST_API_URL</code>, <code>BOT_PALWORLD_REST_API_USERNAME</code> and <code>BOT_PALWORLD_REST_API_PASSWORD</code> for metrics, player events and in-game announcements.
+                Set <code>BOT_PALWORLD_REST_API_URL</code>, <code>BOT_PALWORLD_REST_API_USERNAME</code> and <code>BOT_PALWORLD_REST_API_PASSWORD</code> for metrics and in-game announcements.
               </div>
             </div>
             <div class="step">

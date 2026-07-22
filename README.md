@@ -1,6 +1,6 @@
 # NeatherBeacon
 
-> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, Palworld live signals, and public Pokédex commands.
+> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, Palworld commands, and public Pokédex commands.
 
 <!-- Public repository slug: MathieuLF/neather-beacon-discord-bot -->
 
@@ -18,7 +18,7 @@ Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
 
 NeatherBeacon runs a single Docker container with two Discord bot accounts:
 
-- **NeatherBeacon - Alpha**: server audit, additive resync, logs, stats, Palworld live signals, public Pokédex commands.
+- **NeatherBeacon - Alpha**: server audit, additive resync, logs, stats, Palworld commands, public Pokédex commands.
 - **NeatherBeacon - Bravo**: music playback through upstream Muse.
 
 The project is designed to be **safe by default**:
@@ -40,8 +40,7 @@ This is a self-hosted side project for a private Discord server.
 | Community channels | dedicated public spaces for Palworld and Pokémon GO conversations |
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
-| Palworld status | Uptime Kuma status-page polling, one-shot up/down messages and maintenance/incident notices |
-| Palworld live | Public `/metrics-palworld`, player join/leave notices, staff `/announce-palworld` relayed in game |
+| Palworld | Public `/metrics-palworld` and staff `/announce-palworld` relayed in game |
 | Gaylemon daily recap | Automatic `/resume?jour=YYYY-MM-DD` link posted around 01:00 in Palworld, plus `/resume-hier` |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
@@ -81,26 +80,12 @@ Use English Pokémon names.
 
 Pokédex JSON and artwork are cached under `runtime/pokedex-cache`.
 
-## Palworld status alerts
-
-When `BOT_UPTIME_KUMA_STATUS_PAGE_URL` points to a published Uptime Kuma status page, Alpha polls the public status-page API and posts updates in the configured Palworld channel.
-
-- `up`, `down` and `maintenance` states are announced only when the status changes.
-- Uptime Kuma maintenances and incidents are announced once per public revision.
-- Completed maintenances and incidents are announced once when they disappear from the public page.
-- If Uptime Kuma itself is unreachable, Alpha reports that outage and recovery only in the secure logs channel.
-- Anti-spam state is stored in `runtime/uptime-kuma-status.json`, so bot restarts do not replay the same notice.
-
 ## Palworld REST integration
 
-When the Palworld REST API is configured, Alpha can read and publish live game signals without exposing the API publicly.
+When the Palworld REST API is configured, Alpha can read and publish requested game signals without exposing the API publicly.
 
 - `/metrics-palworld` reads `GET /metrics` and posts server FPS, players, frame time, uptime, in-game days and bases.
-- Alpha polls `GET /players`, stores only hashed player identities, and posts join/leave notices in the Palworld channel after the first silent baseline and a short stability grace period.
-- Quick disconnect/reconnect flaps cancel pending notices instead of posting leave/rejoin spam.
-- If the Palworld API is unreachable, outage and recovery notices go only to the secure logs channel; public join/leave notices are rebaselined after recovery to avoid false positives.
 - `/announce-palworld` calls `POST /announce` and then posts the same announcement in the Palworld Discord channel.
-- Player IPs, player IDs, user IDs and locations are never printed in Discord messages.
 
 ## Gaylemon daily recap
 
@@ -132,7 +117,7 @@ The bot checks `/resume?jour=...` and `data/public-events-index.json` before sen
 ├── lib/
 │   ├── reconcile.js          # additive Discord reconciliation
 │   ├── managed-ids.js        # runtime ID registry support
-│   ├── palworld-rest.js      # Palworld REST metrics, announcements and player diffing
+│   ├── palworld-rest.js      # Palworld REST metrics and announcements
 │   └── pokedex.js            # cached PokéAPI integration
 ├── scripts/
 │   ├── capture-managed-ids.js
@@ -184,8 +169,6 @@ Recreatable runtime caches:
 - `runtime/pokedex-cache`
 - `runtime/admin-state.json`
 - `runtime/managed-ids.json`
-- `runtime/uptime-kuma-status.json`
-- `runtime/palworld-players.json`
 - `runtime/daily-summary-state.json`
 
 ## Optional runtime tuning
@@ -196,16 +179,10 @@ Defaults are documented in `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000` limits Stats voice-channel renames.
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30` controls JSON cache age.
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880` rejects oversized Pokédex artwork downloads.
-- `BOT_UPTIME_KUMA_STATUS_PAGE_URL=` enables Palworld status polling when set to a published Uptime Kuma status page.
-- `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME=🐾・palworld` controls where up/down and maintenance notices are posted.
-- `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000` controls how often Alpha checks the public status page API.
-- `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000` limits each Uptime Kuma HTTP request.
-- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld metrics, player events and Discord announcements are posted.
+- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld metrics and Discord announcements are posted.
 - `BOT_PALWORLD_REST_API_URL=` enables Palworld REST features when set to the server API base URL, for example `http://host.docker.internal:8212/v1/api` when the API or SSH tunnel is exposed on the Docker Desktop host.
 - `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth.
 - `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000` limits Palworld REST calls.
-- `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000` controls player join/leave polling.
-- `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS=120000` requires a player join/leave state to stay stable before a Discord notice is posted.
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000` controls the global `/metrics-palworld` cooldown.
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro` controls the recap microsite base URL.
 - `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary.

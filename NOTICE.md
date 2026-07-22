@@ -49,7 +49,7 @@ This project depends on external software and services, including:
 - `discord.js` for Discord API integration
 - upstream Muse for music playback
 - PokéAPI for public Pokémon data
-- Palworld REST API for optional private-server status and announcement interoperability
+- Palworld REST API for optional private-server metrics and announcement interoperability
 - Docker Desktop / Docker Engine for local container runtime
 - Node.js for the Alpha runtime
 
