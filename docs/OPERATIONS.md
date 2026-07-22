@@ -44,13 +44,10 @@ Nom du stack: `NeatherBeacon`
   - `/type`
   - `/random-pokemon`
 - `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite mis en cache, types, abilities, stats, species, labels, egg groups et evolution quand disponible
-- surveillance de la page Uptime Kuma Palworld avec annonce unique des transitions actif/inactif et des maintenances/incidents publics
 - commande publique `/metrics-palworld` avec cooldown global de 4 minutes
-- surveillance des connexions/deconnexions Palworld via l API REST officielle, apres baseline silencieuse et fenetre de stabilite
 - commande staff `/announce-palworld` pour publier une annonce dans Discord et la relayer en jeu via `POST /announce`
 - publication automatique du resume Gaylemon de la veille vers 01:00 dans le salon Palworld
 - commande publique `/resume-hier` dans le salon Palworld
-- erreurs API Palworld REST signalees seulement dans le salon securise des logs
 - logs entree/sortie/deplacement vocal
 - commandes slash admin:
   - `/status`
@@ -121,8 +118,7 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
    - `MUSE_SPOTIFY_CLIENT_ID`
    - `MUSE_SPOTIFY_CLIENT_SECRET`
    - `BOT_TIMEZONE=America/Toronto`
-   - `BOT_UPTIME_KUMA_STATUS_PAGE_URL=https://uptime.mathieu.pro/status/palworld` si les alertes Uptime Kuma doivent tourner
-   - `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME`, `BOT_PALWORLD_REST_API_PASSWORD` si les metrics, connexions/deconnexions et annonces en jeu doivent tourner
+   - `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME`, `BOT_PALWORLD_REST_API_PASSWORD` si les metrics et annonces en jeu doivent tourner
 4. Verifier la config:
    - `npm run validate:config`
    - `npm run test`
@@ -159,31 +155,14 @@ La categorie `Stats` est geree au runtime par le bot admin, reste visible pour t
 Les evenements de presence et de vocal sont debounces par defaut pendant 15 secondes avant de rafraichir les Stats, afin d eviter des rafales d ecritures Discord. La commande `/stats-refresh` reste immediate.
 Les commandes `/diag` et `/cache-status` sont ephemeres, reservees admin, et ne publient ni secrets ni contenu de fichiers.
 
-## Alertes Palworld Via Uptime Kuma
-
-Quand `BOT_UPTIME_KUMA_STATUS_PAGE_URL` pointe vers une page Uptime Kuma publiee, Alpha lit l API publique de cette page et annonce les changements dans le salon configure par `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME`.
-
-- les transitions `actif`, `inactif` et `maintenance` sont annoncees seulement quand l etat change
-- les maintenances et incidents publics Uptime Kuma sont annonces une fois par revision
-- la fin d une maintenance ou d un incident est annoncee une fois quand l evenement disparait de la page publique
-- si Uptime Kuma lui-meme est indisponible, la panne et le retour sont annonces seulement dans le salon securise des logs
-- l etat anti-spam est conserve dans `runtime/uptime-kuma-status.json`
-
 ## Palworld Via API REST
 
-Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALWORLD_REST_API_PASSWORD` sont renseignes, Alpha active les fonctions Palworld REST.
+Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALWORLD_REST_API_PASSWORD` sont renseignes, Alpha active les commandes Palworld REST.
 
 - `/metrics-palworld` lit `GET /metrics` et publie les derniers metrics dans Discord
 - la commande est publique, visible par tous, mais limitee globalement par `BOT_PALWORLD_METRICS_COOLDOWN_MS` (4 minutes par defaut)
-- Alpha lit `GET /players` selon `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS` et compare avec `runtime/palworld-players.json`
-- le premier poll sert de baseline silencieuse, pour eviter de publier tous les joueurs presents au demarrage
-- les entrees/sorties detectees ensuite restent en attente pendant `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS`
-- si un joueur deco/reco rapidement avant la fin de cette fenetre, l evenement en attente est annule sans message public
-- les entrees/sorties stables sont publiees dans `BOT_PALWORLD_CHANNEL_NAME`
-- les identifiants joueur sont hashes dans le fichier runtime; Discord ne recoit jamais les IP, player IDs, user IDs ou positions
-- si l API Palworld ne repond plus, Alpha annonce la panne et le retour seulement dans le salon securise des logs
-- apres une panne API, Alpha rebaseline les joueurs sans publier de faux depart ou fausse arrivee
 - `/announce-palworld` doit etre utilisee dans le salon Palworld par un admin ou modo; elle publie le message dans Discord puis appelle `POST /announce` pour relayer en jeu
+- Alpha n effectue aucune surveillance automatique de l API REST; les appels REST partent seulement quand une commande Palworld est utilisee
 
 ## Resume Quotidien Gaylemon
 
@@ -248,17 +227,11 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000`: intervalle minimal entre deux renommages des salons vocaux Stats
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30`: duree de validite des JSON PokéAPI
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880`: taille maximale d un asset Pokédex telecharge
-- `BOT_UPTIME_KUMA_STATUS_PAGE_URL=`: active la surveillance d une page Uptime Kuma publiee, par exemple `https://uptime.mathieu.pro/status/palworld`
-- `BOT_UPTIME_KUMA_STATUS_CHANNEL_NAME=🐾・palworld`: salon cible pour les annonces de statut Palworld
-- `BOT_UPTIME_KUMA_POLL_INTERVAL_MS=60000`: frequence de lecture de l API publique de la page de statut
-- `BOT_UPTIME_KUMA_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Uptime Kuma
-- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld`: salon cible pour les metrics, evenements joueurs et annonces Palworld REST
+- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld`: salon cible pour les metrics et annonces Palworld REST
 - `BOT_PALWORLD_REST_API_URL=`: URL de base de l API REST Palworld, par exemple `http://host.docker.internal:8212/v1/api` si l API ou le tunnel SSH est expose sur l hote Docker Desktop
 - `BOT_PALWORLD_REST_API_USERNAME=`: utilisateur Basic Auth Palworld REST
 - `BOT_PALWORLD_REST_API_PASSWORD=`: mot de passe Basic Auth Palworld REST
 - `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=10000`: delai maximal d appel HTTP vers Palworld REST
-- `BOT_PALWORLD_PLAYER_POLL_INTERVAL_MS=60000`: frequence de lecture de `GET /players`
-- `BOT_PALWORLD_PLAYER_EVENT_GRACE_MS=120000`: delai de stabilite avant de publier une connexion/deconnexion Palworld
 - `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000`: cooldown global de `/metrics-palworld`
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro`: base publique du microsite Gaylemon
 - `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`: fuseau du calcul de la veille
@@ -288,8 +261,6 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
 - verifier le volume Docker `example-muse-data`
 - verifier `C:\Projects\nether-beacon\runtime\admin-heartbeat.json` et `C:\Projects\nether-beacon\runtime\supervisor-state.json`
 - verifier `C:\Projects\nether-beacon\runtime\managed-ids.json` apres gros changement manuel de structure
-- verifier `C:\Projects\nether-beacon\runtime\uptime-kuma-status.json` si les annonces Palworld se repetent ou ne partent pas
-- verifier `C:\Projects\nether-beacon\runtime\palworld-players.json` si les connexions/deconnexions Palworld semblent decalees
 - verifier `C:\Projects\nether-beacon\runtime\daily-summary-state.json` si le resume Gaylemon se repete ou ne part pas
 - `C:\Projects\nether-beacon\runtime\pokedex-cache` est un cache PokéAPI recréable pour les JSON, evolutions et images
 - garder les tokens Discord valides
@@ -314,10 +285,6 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
   - verifier `BOT_PALWORLD_REST_API_URL`
   - verifier `BOT_PALWORLD_REST_API_USERNAME`
   - verifier `BOT_PALWORLD_REST_API_PASSWORD`
-- si les connexions/deconnexions Palworld ne sortent pas:
-  - verifier que l API Palworld est joignable depuis le conteneur
-  - verifier que le salon configure par `BOT_PALWORLD_CHANNEL_NAME` existe
-  - lire les logs securises pour les erreurs API
 
 ## Assets
 
