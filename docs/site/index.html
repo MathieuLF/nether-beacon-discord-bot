@@ -110,7 +110,7 @@ public URL  optional</pre>
             <div class="command"><code>/stats-refresh</code><br>Force the Stats voice channels to refresh.</div>
             <div class="command"><code>/diag</code><br>Show safe Alpha, Bravo, stats and command diagnostics.</div>
             <div class="command"><code>/cache-status</code><br>Report local cache size and age without file contents.</div>
-            <div class="command"><code>/metrics-palworld</code><br>Show public Palworld REST metrics with a global 4-minute cooldown.</div>
+            <div class="command"><code>/metrics-palworld</code><br>Show filtered Gaylemon Palworld status with a global 4-minute cooldown.</div>
             <div class="command"><code>/announce-palworld message:...</code><br>Let admins and moderators post to Discord and relay the announcement in game.</div>
             <div class="command"><code>/pokemon name:charizard</code><br>Return an autocomplete-backed Pokédex card with artwork.</div>
             <div class="command"><code>/weakness pokemon:charizard</code><br>Show weaknesses, resistances and immunities.</div>
@@ -141,7 +141,7 @@ public URL  optional</pre>
             <div class="step">
               <div>
                 <strong>Enable Palworld REST.</strong><br>
-                Set <code>BOT_PALWORLD_REST_API_URL</code>, <code>BOT_PALWORLD_REST_API_USERNAME</code> and <code>BOT_PALWORLD_REST_API_PASSWORD</code> for metrics and in-game announcements.
+                Public metrics use the filtered Gaylemon JSON by default. Set the Palworld REST admin variables only for staff in-game announcements.
               </div>
             </div>
             <div class="step">

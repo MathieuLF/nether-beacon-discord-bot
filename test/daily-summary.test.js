@@ -4,6 +4,9 @@ const {
   buildDailySummaryMessage,
   createDailySummarySettings,
   getSummaryUrl,
+  hasDailySummaryBeenSent,
+  markDailySummarySent,
+  normalizeDailySummaryState,
   shouldRunDailySummary,
 } = require('../lib/daily-summary');
 
@@ -49,4 +52,23 @@ test('daily summary message keeps the link in plain text without buttons or redu
   assert.match(embed.description, /https:\/\/gaylemon\.mathieu\.pro\/resume\?jour=2026-07-16/);
   assert.doesNotMatch(embed.description, /sont réunis au même endroit/);
   assert.doesNotMatch(embed.description, /mise à jour/);
+});
+
+test('daily summary state is idempotent per date and channel', () => {
+  let state = normalizeDailySummaryState(null, 'guild-1');
+
+  assert.equal(hasDailySummaryBeenSent(state, '2026-07-21', 'channel-1'), false);
+
+  state = markDailySummarySent(
+    state,
+    '2026-07-21',
+    { id: 'channel-1', name: '🐾・palworld' },
+    { ok: true, detail: 'resume-et-index-disponibles' },
+    '2026-07-22T05:00:00.000Z',
+  );
+
+  assert.equal(hasDailySummaryBeenSent(state, '2026-07-21', 'channel-1'), true);
+  assert.equal(hasDailySummaryBeenSent(state, '2026-07-21', 'channel-2'), false);
+  assert.equal(hasDailySummaryBeenSent(state, '2026-07-20', 'channel-1'), false);
+  assert.equal(state.dates['2026-07-21'].channels['channel-1'].verified, true);
 });

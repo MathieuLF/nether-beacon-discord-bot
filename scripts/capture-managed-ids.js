@@ -1,13 +1,13 @@
 const { REST, Routes } = require('discord.js');
 const { config } = require('dotenv');
+config();
+
 const { loadServerPlan } = require('../lib/config');
 const {
   captureManagedIdsFromDiscordSnapshot,
   loadManagedIds,
   saveManagedIds,
 } = require('../lib/managed-ids');
-
-config();
 
 const token = process.env.DISCORD_BOT_TOKEN?.trim();
 const guildId = process.env.DISCORD_GUILD_ID?.trim();

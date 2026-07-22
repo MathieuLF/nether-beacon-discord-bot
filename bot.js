@@ -6,7 +6,16 @@ const {
   PermissionFlagsBits,
 } = require('discord.js');
 const { config } = require('dotenv');
+config();
+
+const { validateBotEnvironment } = require('./lib/env');
+const env = validateBotEnvironment(process.env);
 const { paths } = require('./lib/config');
+const {
+  createCooldown,
+  hasAdminAccess: interactionHasAdminAccess,
+  hasStaffAccess: interactionHasStaffAccess,
+} = require('./lib/access-control');
 const {
   POKEDEX_COMMAND_NAMES,
   STAFF_COMMAND_NAMES,
@@ -33,18 +42,24 @@ const {
 } = require('./lib/runtime-state');
 const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
 const {
-  fetchPalworldMetrics,
+  createPalworldRestClient,
   formatPalworldAnnouncementForDiscord,
-  formatPalworldMetrics,
   normalizeAnnouncementMessage,
-  sendPalworldAnnouncement,
 } = require('./lib/palworld-rest');
+const {
+  createPalworldPublicClient,
+  formatPublicPalworldStatus,
+} = require('./lib/palworld-public');
+const { sanitizePalworldText } = require('./lib/palworld-safety');
 const {
   SUMMARY_COMMAND_NAME,
   buildDailySummaryMessage,
   createDailySummarySettings,
   getPreviousLocalDateKey,
+  hasDailySummaryBeenSent: hasDailySummaryBeenSentInState,
   inspectSummaryAvailability,
+  markDailySummarySent: markDailySummarySentInState,
+  normalizeDailySummaryState,
   shouldRunDailySummary,
 } = require('./lib/daily-summary');
 const {
@@ -58,22 +73,11 @@ const {
 } = require('./lib/pokedex');
 const pkg = require('./package.json');
 
-config();
-
-const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN?.trim();
-const GUILD_ID = process.env.DISCORD_GUILD_ID?.trim();
-const BOT_TIMEZONE = process.env.BOT_TIMEZONE?.trim() || 'America/Toronto';
-
-if (!BOT_TOKEN || !GUILD_ID) {
-  throw new Error('Missing DISCORD_BOT_TOKEN or DISCORD_GUILD_ID in .env');
-}
+const BOT_TOKEN = env.DISCORD_BOT_TOKEN;
+const GUILD_ID = env.DISCORD_GUILD_ID;
+const BOT_TIMEZONE = env.BOT_TIMEZONE;
 
 fs.mkdirSync(paths.runtimeDir, { recursive: true });
-
-const readPositiveInteger = (value, fallback) => {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
-};
 
 const P = PermissionFlagsBits;
 const ADMIN_ROLE_NAME = plan.adminRoleName;
@@ -83,26 +87,32 @@ const STATS_CATEGORY_NAME = 'Stats';
 const STATS_CATEGORY_LEGACY_NAMES = ['Stats serveur'];
 const STATS_LIVE_CHANNEL_NAME = '📊・stats-live';
 const STATS_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const STATS_VOICE_REFRESH_INTERVAL_MS = readPositiveInteger(
-  process.env.BOT_STATS_VOICE_REFRESH_INTERVAL_MS,
-  STATS_REFRESH_INTERVAL_MS,
-);
-const STATS_EVENT_DEBOUNCE_MS = readPositiveInteger(process.env.BOT_STATS_EVENT_DEBOUNCE_MS, 15000);
+const STATS_VOICE_REFRESH_INTERVAL_MS = env.BOT_STATS_VOICE_REFRESH_INTERVAL_MS || STATS_REFRESH_INTERVAL_MS;
+const STATS_EVENT_DEBOUNCE_MS = env.BOT_STATS_EVENT_DEBOUNCE_MS;
 const STATS_MEMBER_FETCH_TIMEOUT_MS = 10000;
-const PALWORLD_CHANNEL_NAME = process.env.BOT_PALWORLD_CHANNEL_NAME?.trim() || '🐾・palworld';
+const PALWORLD_CHANNEL_NAME = env.BOT_PALWORLD_CHANNEL_NAME;
 const dailySummarySettings = createDailySummarySettings(
   {
     ...process.env,
     BOT_PALWORLD_CHANNEL_NAME: PALWORLD_CHANNEL_NAME,
     BOT_TIMEZONE,
+    GAYLEMON_PUBLIC_BASE_URL: env.GAYLEMON_PUBLIC_BASE_URL,
   },
   plan,
 );
-const PALWORLD_REST_API_URL = process.env.BOT_PALWORLD_REST_API_URL?.trim() || '';
-const PALWORLD_REST_API_USERNAME = process.env.BOT_PALWORLD_REST_API_USERNAME?.trim() || '';
-const PALWORLD_REST_API_PASSWORD = process.env.BOT_PALWORLD_REST_API_PASSWORD || '';
-const PALWORLD_REST_FETCH_TIMEOUT_MS = readPositiveInteger(process.env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS, 10000);
-const PALWORLD_METRICS_COOLDOWN_MS = readPositiveInteger(process.env.BOT_PALWORLD_METRICS_COOLDOWN_MS, 4 * 60 * 1000);
+const PALWORLD_REST_API_URL = env.BOT_PALWORLD_REST_API_URL;
+const PALWORLD_REST_API_USERNAME = env.BOT_PALWORLD_REST_API_USERNAME;
+const PALWORLD_REST_API_PASSWORD = env.BOT_PALWORLD_REST_API_PASSWORD;
+const PALWORLD_REST_FETCH_TIMEOUT_MS = env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS;
+const PALWORLD_REST_CIRCUIT_BREAKER_MS = env.BOT_PALWORLD_REST_CIRCUIT_BREAKER_MS;
+const PALWORLD_METRICS_COOLDOWN_MS = env.BOT_PALWORLD_METRICS_COOLDOWN_MS;
+const PALWORLD_ADMIN_COOLDOWN_MS = env.BOT_PALWORLD_ADMIN_COOLDOWN_MS;
+const PALWORLD_PUBLIC_FETCH_TIMEOUT_MS = env.BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS;
+const PALWORLD_PUBLIC_CACHE_TTL_MS = env.BOT_PALWORLD_PUBLIC_CACHE_TTL_MS;
+const PALWORLD_ADMIN_CHANNEL_IDS = env.BOT_PALWORLD_ADMIN_CHANNEL_IDS;
+const PALWORLD_ADMIN_CHANNEL_NAMES = env.BOT_PALWORLD_ADMIN_CHANNEL_NAMES.length
+  ? env.BOT_PALWORLD_ADMIN_CHANNEL_NAMES
+  : [PALWORLD_CHANNEL_NAME];
 const MOD_ROLE_NAME = 'Mod';
 const STATS_CHANNEL_PREFIXES = {
   date: '📅・',
@@ -117,8 +127,25 @@ const STATS_CHANNEL_PREFIXES = {
   roles: '🎭・',
 };
 const PUBLIC_COMMAND_COOLDOWN_MS = 5000;
-const publicCommandCooldowns = new Map();
-let lastPalworldMetricsCommandAt = 0;
+const publicCommandCooldown = createCooldown({ durationMs: PUBLIC_COMMAND_COOLDOWN_MS });
+const palworldMetricsCooldown = createCooldown({ durationMs: PALWORLD_METRICS_COOLDOWN_MS });
+const palworldAdminCooldown = createCooldown({ durationMs: PALWORLD_ADMIN_COOLDOWN_MS });
+
+const palworldPublicClient = createPalworldPublicClient({
+  publicBaseUrl: env.GAYLEMON_PUBLIC_BASE_URL,
+  timeoutMs: PALWORLD_PUBLIC_FETCH_TIMEOUT_MS,
+  cacheTtlMs: PALWORLD_PUBLIC_CACHE_TTL_MS,
+});
+
+const palworldAdminClient = (PALWORLD_REST_API_URL && PALWORLD_REST_API_USERNAME && PALWORLD_REST_API_PASSWORD)
+  ? createPalworldRestClient({
+    apiUrl: PALWORLD_REST_API_URL,
+    username: PALWORLD_REST_API_USERNAME,
+    password: PALWORLD_REST_API_PASSWORD,
+    timeoutMs: PALWORLD_REST_FETCH_TIMEOUT_MS,
+    circuitBreakerMs: PALWORLD_REST_CIRCUIT_BREAKER_MS,
+  })
+  : null;
 
 const formatLine = (label, value) => `- **${label}** : ${value}`;
 
@@ -183,16 +210,7 @@ const state = createAdminState({
 });
 
 const readDailySummaryState = () => {
-  const payload = readJson(paths.dailySummaryStatePath);
-  if (payload && typeof payload === 'object' && payload.dates && typeof payload.dates === 'object') {
-    return payload;
-  }
-
-  return {
-    version: 1,
-    guildId: GUILD_ID,
-    dates: {},
-  };
+  return normalizeDailySummaryState(readJson(paths.dailySummaryStatePath), GUILD_ID);
 };
 
 const writeDailySummaryState = (payload) => {
@@ -203,24 +221,13 @@ const writeDailySummaryState = (payload) => {
   });
 };
 
-const dailySummaryState = readDailySummaryState();
+let dailySummaryState = readDailySummaryState();
 
 const hasDailySummaryBeenSent = (dateKey, channelId) =>
-  Boolean(dailySummaryState.dates?.[dateKey]?.channels?.[channelId]?.sentAt);
+  hasDailySummaryBeenSentInState(dailySummaryState, dateKey, channelId);
 
 const markDailySummarySent = (dateKey, channel, availability) => {
-  if (!dailySummaryState.dates[dateKey]) {
-    dailySummaryState.dates[dateKey] = { channels: {} };
-  }
-
-  dailySummaryState.dates[dateKey].channels[channel.id] = {
-    channelId: channel.id,
-    channelName: channel.name || null,
-    sentAt: new Date().toISOString(),
-    verified: Boolean(availability?.ok),
-    detail: availability?.detail || null,
-  };
-
+  dailySummaryState = markDailySummarySentInState(dailySummaryState, dateKey, channel, availability);
   writeDailySummaryState(dailySummaryState);
 };
 
@@ -264,52 +271,24 @@ const client = new Client({
 });
 
 const hasAdminAccess = (interaction) => {
-  if (!interaction.inCachedGuild()) return false;
-  if (interaction.memberPermissions?.has(P.Administrator)) return true;
-  return interaction.member.roles.cache.some((role) => role.name === ADMIN_ROLE_NAME);
+  return interactionHasAdminAccess(interaction, ADMIN_ROLE_NAME);
 };
 
 const hasStaffAccess = (interaction) => {
-  if (hasAdminAccess(interaction)) return true;
-  if (!interaction.inCachedGuild()) return false;
-  return interaction.member.roles.cache.some((role) => role.name === MOD_ROLE_NAME);
+  return interactionHasStaffAccess(interaction, {
+    adminRoleName: ADMIN_ROLE_NAME,
+    modRoleName: MOD_ROLE_NAME,
+  });
 };
 
 const isPalworldRestConfigured = () =>
   Boolean(PALWORLD_REST_API_URL && PALWORLD_REST_API_USERNAME && PALWORLD_REST_API_PASSWORD);
 
-const getPalworldRestOptions = () => ({
-  apiUrl: PALWORLD_REST_API_URL,
-  username: PALWORLD_REST_API_USERNAME,
-  password: PALWORLD_REST_API_PASSWORD,
-  timeoutMs: PALWORLD_REST_FETCH_TIMEOUT_MS,
-});
+const getPublicCommandCooldown = (userId) => publicCommandCooldown.reserve(userId);
 
-const getPublicCommandCooldown = (userId) => {
-  const now = Date.now();
+const reservePalworldMetricsCooldown = () => palworldMetricsCooldown.reserve('metrics-palworld');
 
-  for (const [cachedUserId, previousAt] of publicCommandCooldowns.entries()) {
-    if (now - previousAt > PUBLIC_COMMAND_COOLDOWN_MS) {
-      publicCommandCooldowns.delete(cachedUserId);
-    }
-  }
-
-  const previous = publicCommandCooldowns.get(userId) || 0;
-  const remaining = PUBLIC_COMMAND_COOLDOWN_MS - (now - previous);
-  if (remaining > 0) return Math.ceil(remaining / 1000);
-
-  publicCommandCooldowns.set(userId, now);
-  return 0;
-};
-
-const reservePalworldMetricsCooldown = () => {
-  const now = Date.now();
-  const remaining = PALWORLD_METRICS_COOLDOWN_MS - (now - lastPalworldMetricsCommandAt);
-  if (remaining > 0) return Math.ceil(remaining / 1000);
-
-  lastPalworldMetricsCommandAt = now;
-  return 0;
-};
+const reservePalworldAdminCooldown = () => palworldAdminCooldown.reserve('palworld-admin');
 
 const runPokedexCommand = async (interaction) => {
   if (interaction.commandName === 'pokemon') {
@@ -439,6 +418,35 @@ const resolveDailySummaryChannels = async (guild, forCommand = false) => {
   return [...channels.values()];
 };
 
+const resolvePalworldAdminChannels = async (guild) => {
+  const normalizedNames = new Set(PALWORLD_ADMIN_CHANNEL_NAMES.map(normalizeSummaryChannelName).filter(Boolean));
+  const channels = new Map();
+
+  await guild.channels.fetch().catch(() => undefined);
+
+  for (const id of PALWORLD_ADMIN_CHANNEL_IDS) {
+    const channel = await guild.channels.fetch(id).catch(() => null);
+    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
+  }
+
+  for (const name of PALWORLD_ADMIN_CHANNEL_NAMES) {
+    const managedId = findManagedChannelIdByName(guild, name);
+    if (!managedId) continue;
+
+    const channel = await guild.channels.fetch(managedId).catch(() => null);
+    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
+  }
+
+  for (const channel of guild.channels.cache.values()) {
+    if (!isSendableTextChannel(channel)) continue;
+    if (normalizedNames.has(normalizeSummaryChannelName(channel.name))) {
+      channels.set(channel.id, channel);
+    }
+  }
+
+  return [...channels.values()];
+};
+
 const sendDailySummaryToChannels = async (guild, dateKey, channels, origin) => {
   const availability = await inspectSummaryAvailability(dailySummarySettings, dateKey);
   const payload = buildDailySummaryMessage(dailySummarySettings, dateKey, availability, origin);
@@ -540,9 +548,9 @@ const startDailySummaryScheduler = (guild) => {
       await runDailySummarySchedulerTick(latestGuild, 'timer');
     } catch (error) {
       await sendLog(guild, formatBotMessage('⚠️ Résumé Gaylemon non publié', [
-        formatLine('Erreur', error.message),
+        formatLine('État', 'publication temporairement indisponible'),
       ]));
-      state.lastError = `daily-summary: ${error.message}`;
+      state.lastError = 'daily-summary: publication-indisponible';
       updateRuntimeFiles();
     } finally {
       dailySummaryPollInFlight = false;
@@ -557,10 +565,10 @@ const startDailySummaryScheduler = (guild) => {
     try {
       await runDailySummarySchedulerTick(guild, 'startup');
     } catch (error) {
-      state.lastError = `daily-summary-startup: ${error.message}`;
+      state.lastError = 'daily-summary-startup: publication-indisponible';
       updateRuntimeFiles();
       await sendLog(guild, formatBotMessage('⚠️ Résumé Gaylemon non publié au démarrage', [
-        formatLine('Erreur', error.message),
+        formatLine('État', 'publication temporairement indisponible'),
       ]));
     } finally {
       dailySummaryPollInFlight = false;
@@ -627,6 +635,8 @@ const knownSecretValues = () => [
   process.env.MUSE_YOUTUBE_API_KEY,
   process.env.MUSE_SPOTIFY_CLIENT_ID,
   process.env.MUSE_SPOTIFY_CLIENT_SECRET,
+  PALWORLD_REST_API_URL,
+  PALWORLD_REST_API_USERNAME,
   PALWORLD_REST_API_PASSWORD,
 ].filter(Boolean);
 
@@ -641,9 +651,10 @@ const clearTask = () => {
 };
 
 const noteRuntimeError = (origin, error) => {
-  state.lastError = `${origin}: ${error.message}`;
+  const safeMessage = sanitizePalworldText(error?.message || 'erreur interne', knownSecretValues());
+  state.lastError = `${origin}: ${safeMessage}`;
   updateRuntimeFiles();
-  console.error(`[${origin}]`, error);
+  console.error(`[${origin}] ${safeMessage}`);
 };
 
 const sortByPosition = (left, right) => left.rawPosition - right.rawPosition;
@@ -1001,7 +1012,8 @@ const summarizeStatus = (guild) => {
     formatLine('Audit', formatTimestamp(state.lastAudit?.at)),
     formatLine('Stats', formatTimestamp(state.lastStats?.at)),
     formatLine('Résumé Gaylemon', state.lastDailySummary ? `${state.lastDailySummary.dateKey} (${formatTimestamp(state.lastDailySummary.at)})` : 'en attente'),
-    formatLine('Palworld REST', isPalworldRestConfigured() ? `${state.lastPalworldRest?.status || 'en attente'} (${formatTimestamp(state.lastPalworldRest?.at)})` : 'désactivé'),
+    formatLine('Palworld public', state.lastPalworldRest ? `${state.lastPalworldRest.status || 'en attente'} (${formatTimestamp(state.lastPalworldRest.at)})` : 'en attente'),
+    formatLine('API admin Palworld', isPalworldRestConfigured() ? 'configurée pour les annonces staff' : 'désactivée'),
     formatLine('Membre', state.lastMemberEvent || 'aucun'),
     formatLine('Vocal', state.lastVoiceEvent || 'aucun'),
     '',
@@ -1012,7 +1024,7 @@ const summarizeStatus = (guild) => {
     formatLine('Refresh Stats vocal', `${STATS_VOICE_REFRESH_INTERVAL_MS}ms`),
     formatLine('Fuseau horaire', BOT_TIMEZONE),
     formatLine('Présences en cache', state.lastStats?.presenceCacheSize ?? 'non détecté'),
-    formatLine('Dernière erreur', state.lastError || 'aucune'),
+    formatLine('Dernière erreur', sanitizePalworldText(state.lastError || 'aucune', knownSecretValues())),
     '',
     '*Adresse publique non requise en v1 : gateway Discord + slash commands.*',
   ].join('\n');
@@ -1086,19 +1098,14 @@ const formatDuration = (startedAt) => {
 
 const replyPalworldRestNotConfigured = async (interaction) => {
   await interaction.reply({
-    content: formatBotMessage('⚠️ Palworld REST désactivé', [
-      'Les variables `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALWORLD_REST_API_PASSWORD` doivent être configurées côté bot.',
+    content: formatBotMessage('⚠️ API admin Palworld désactivée', [
+      'La passerelle admin locale n’est pas configurée côté bot.',
     ]),
     ephemeral: true,
   });
 };
 
 const runPalworldMetricsCommand = async (interaction) => {
-  if (!isPalworldRestConfigured()) {
-    await replyPalworldRestNotConfigured(interaction);
-    return;
-  }
-
   const cooldownSeconds = reservePalworldMetricsCooldown();
   if (cooldownSeconds > 0) {
     await interaction.reply({
@@ -1113,41 +1120,57 @@ const runPalworldMetricsCommand = async (interaction) => {
   await interaction.deferReply();
 
   try {
-    const metrics = await fetchPalworldMetrics(getPalworldRestOptions());
+    const metrics = await palworldPublicClient.fetchStatus();
     state.lastPalworldRest = {
-      at: metrics.checkedAt,
-      status: 'metrics-ok',
-      players: metrics.currentPlayers,
+      at: metrics.checkedAt || new Date().toISOString(),
+      status: metrics.fresh ? 'public-ok' : 'public-stale',
+      players: metrics.players,
     };
     updateRuntimeFiles();
 
     await interaction.editReply({
-      content: formatPalworldMetrics(metrics, { timeZone: BOT_TIMEZONE }),
+      content: formatPublicPalworldStatus(metrics, { timeZone: BOT_TIMEZONE }),
       allowedMentions: { parse: [] },
     });
   } catch (error) {
     state.lastPalworldRest = {
       at: new Date().toISOString(),
-      status: 'metrics-error',
+      status: 'public-error',
       players: state.lastPalworldRest?.players ?? null,
     };
-    state.lastError = `palworld-metrics: ${error.message}`;
+    state.lastError = 'palworld-public: donnees publiques indisponibles';
     updateRuntimeFiles();
 
     await interaction.editReply({
       content: formatBotMessage('⚠️ Metrics Palworld indisponibles', [
-        "L'API REST Palworld ne répond pas correctement. Les détails techniques ont été envoyés aux logs.",
+        'Les données publiques Gaylemon ne sont pas disponibles pour le moment.',
       ]),
     }).catch(() => undefined);
     await sendLog(interaction.guild, formatBotMessage('⚠️ Metrics Palworld indisponibles', [
-      formatLine('Erreur', error.message),
+      formatLine('Source', 'JSON publics Gaylemon'),
+      formatLine('État', 'indisponible'),
     ]));
   }
 };
 
 const runPalworldAnnouncementCommand = async (interaction, guild) => {
-  if (!isPalworldRestConfigured()) {
+  if (!isPalworldRestConfigured() || !palworldAdminClient) {
     await replyPalworldRestNotConfigured(interaction);
+    return;
+  }
+
+  const allowedChannels = await resolvePalworldAdminChannels(guild);
+  const isAllowedChannel = allowedChannels.some((channel) => channel.id === interaction.channelId);
+  if (!isAllowedChannel) {
+    const channelList = allowedChannels.length
+      ? allowedChannels.map((channel) => `<#${channel.id}>`).join(', ')
+      : PALWORLD_ADMIN_CHANNEL_NAMES.map((name) => `#${name}`).join(', ');
+    await interaction.reply({
+      content: formatBotMessage('📣 Annonce Palworld', [
+        `Utilise cette commande dans ${channelList || 'le salon Palworld configuré'}.`,
+      ]),
+      ephemeral: true,
+    });
     return;
   }
 
@@ -1162,24 +1185,34 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
     return;
   }
 
-  if (interaction.channelId !== palworldChannelId) {
+  let message;
+  try {
+    message = normalizeAnnouncementMessage(interaction.options.getString('message', true));
+  } catch (error) {
     await interaction.reply({
-      content: formatBotMessage('📣 Annonce Palworld', [
-        `Utilise cette commande directement dans <#${palworldChannelId}> pour que l’annonce Discord reste au bon endroit.`,
+      content: formatBotMessage('⚠️ Annonce Palworld', [
+        'Le message est vide ou trop long.',
       ]),
       ephemeral: true,
     });
     return;
   }
 
-  const message = normalizeAnnouncementMessage(interaction.options.getString('message', true));
+  const cooldownSeconds = reservePalworldAdminCooldown();
+  if (cooldownSeconds > 0) {
+    await interaction.reply({
+      content: formatBotMessage('⏳ Annonce Palworld', [
+        `Réessaie dans ${cooldownSeconds}s.`,
+      ]),
+      ephemeral: true,
+    });
+    return;
+  }
+
   await interaction.deferReply({ ephemeral: true });
 
   try {
-    await sendPalworldAnnouncement({
-      ...getPalworldRestOptions(),
-      message,
-    });
+    await palworldAdminClient.sendAnnouncement(message);
 
     const discordAnnouncementSent = await sendPalworldPublicMessage(
       guild,
@@ -1209,7 +1242,8 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
 
     await sendLog(guild, formatBotMessage(discordAnnouncementSent ? '📣 Annonce Palworld' : '⚠️ Annonce Palworld partielle', [
       formatLine('Auteur', formatMember(interaction.member)),
-      formatLine('Salon', PALWORLD_CHANNEL_NAME),
+      formatLine('Salon source', interaction.channel?.name || 'salon autorisé'),
+      formatLine('Salon public', PALWORLD_CHANNEL_NAME),
       formatLine('Visible dans Discord', discordAnnouncementSent ? 'oui' : 'non confirmé'),
       formatLine('Relayée en jeu', 'oui'),
     ]));
@@ -1219,18 +1253,18 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
       status: 'announce-error',
       players: state.lastPalworldRest?.players ?? null,
     };
-    state.lastError = `palworld-announce: ${error.message}`;
+    state.lastError = 'palworld-announce: api-admin-indisponible';
     updateRuntimeFiles();
 
     await interaction.editReply({
       content: formatBotMessage('⚠️ Annonce Palworld non envoyée', [
-        "L'annonce n'a pas été publiée parce que l'API REST Palworld n'a pas confirmé la réception.",
+        "L'annonce n'a pas été relayée parce que la passerelle locale Palworld est indisponible.",
       ]),
     }).catch(() => undefined);
 
     await sendLog(guild, formatBotMessage('⚠️ Annonce Palworld échouée', [
       formatLine('Auteur', formatMember(interaction.member)),
-      formatLine('Erreur', error.message),
+      formatLine('État', 'passerelle locale indisponible'),
     ]));
   }
 };
@@ -1245,7 +1279,7 @@ const helpText = [
   '- resynchronisation additive des rôles, catégories et salons gérés',
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
-  '- Palworld: metrics publics et annonces Discord vers jeu',
+  '- Palworld: statut public Gaylemon et annonces staff vers le jeu',
   '- résumé Gaylemon de la veille publié automatiquement vers 01:00 dans Palworld',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
@@ -1259,10 +1293,10 @@ const helpText = [
   '- Server Members Intent pour le bot admin',
   '- Presence Intent pour les KPI en ligne / absent / déco',
   '- Manage Guild, Manage Roles, Manage Channels pour le bot admin',
-  '- REST API Palworld activée si les commandes Palworld sont utilisées',
+  '- REST API Palworld activée seulement pour les annonces staff relayées en jeu',
   '',
   '**Notes**',
-  "- aucune adresse publique n'est nécessaire en v1",
+  "- les commandes publiques Palworld lisent les JSON filtrés du microsite Gaylemon",
   '- le bot ne supprime pas les ressources existantes',
 ].join('\n');
 
@@ -1315,10 +1349,10 @@ client.once('clientReady', async () => {
     );
     console.log(`Admin bot ready for guild ${guild.name} (${guild.id}).`);
   } catch (error) {
-    state.lastError = error.message;
+    state.lastError = sanitizePalworldText(error?.message || 'startup failed', knownSecretValues());
     state.healthy = false;
     updateRuntimeFiles();
-    console.error(error);
+    console.error(state.lastError);
     process.exit(1);
   }
 });
@@ -1405,11 +1439,11 @@ client.on('interactionCreate', async (interaction) => {
       const guild = await refreshGuild();
       await handleDailySummaryCommand(interaction, guild);
     } catch (error) {
-      state.lastError = `daily-summary-command: ${error.message}`;
+      state.lastError = 'daily-summary-command: indisponible';
       updateRuntimeFiles();
       const payload = {
         content: formatBotMessage('⚠️ Résumé Gaylemon indisponible', [
-          formatLine('Message', error.message),
+          'Le résumé public ne peut pas être préparé pour le moment.',
         ]),
         ephemeral: true,
       };
@@ -1442,12 +1476,12 @@ client.on('interactionCreate', async (interaction) => {
         return;
       }
     } catch (error) {
-      state.lastError = error.message;
+      state.lastError = sanitizePalworldText(error?.message || 'staff command failed', knownSecretValues());
       state.healthy = false;
       updateRuntimeFiles();
       const payload = {
         content: formatBotMessage('⚠️ Erreur Alpha', [
-          formatLine('Message', error.message),
+          'La commande staff ne peut pas être terminée pour le moment.',
         ]),
         ephemeral: true,
       };
@@ -1562,12 +1596,13 @@ client.on('interactionCreate', async (interaction) => {
       ]));
     }
   } catch (error) {
-    state.lastError = error.message;
+    const safeMessage = sanitizePalworldText(error?.message || 'admin command failed', knownSecretValues());
+    state.lastError = safeMessage;
     state.healthy = false;
     updateRuntimeFiles();
     const payload = {
       content: formatBotMessage('⚠️ Erreur Alpha', [
-        formatLine('Message', error.message),
+        formatLine('Message', safeMessage),
       ]),
       ephemeral: true,
     };
