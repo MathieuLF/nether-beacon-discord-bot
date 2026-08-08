@@ -44,10 +44,24 @@ test('command hash is stable and command diff reports missing and extra names', 
   assert.deepEqual(diff.extra, ['legacy-command']);
 });
 
-test('minimal profile exposes only the three approved commands', () => {
+test('runtime profiles expose only their approved commands', () => {
   assert.deepEqual(
     commandPayloadForProfile('minimal').map((command) => command.name),
     ['status', 'metrics-palworld', 'resume-hier'],
+  );
+  assert.deepEqual(
+    commandPayloadForProfile('pokemon').map((command) => command.name),
+    [
+      'status',
+      'pokemon',
+      'weakness',
+      'move',
+      'ability',
+      'type',
+      'random-pokemon',
+      'metrics-palworld',
+      'resume-hier',
+    ],
   );
   assert.equal(commandPayloadForProfile('full'), commandPayload);
   assert.throws(() => commandPayloadForProfile('unknown'), /Unknown bot profile/);

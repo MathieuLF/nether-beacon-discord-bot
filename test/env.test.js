@@ -18,11 +18,12 @@ test('environment validation defaults Palworld public HTTP settings to short saf
   assert.equal(env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS, 5000);
 });
 
-test('environment validation accepts full profile and rejects unknown profiles', () => {
+test('environment validation accepts pokemon and full profiles and rejects unknown profiles', () => {
+  assert.equal(validateBotEnvironment({ ...baseEnv, BOT_PROFILE: 'pokemon' }).BOT_PROFILE, 'pokemon');
   assert.equal(validateBotEnvironment({ ...baseEnv, BOT_PROFILE: 'full' }).BOT_PROFILE, 'full');
   assert.throws(
     () => validateBotEnvironment({ ...baseEnv, BOT_PROFILE: 'public' }),
-    /BOT_PROFILE must be minimal or full/,
+    /BOT_PROFILE must be minimal, pokemon or full/,
   );
 });
 

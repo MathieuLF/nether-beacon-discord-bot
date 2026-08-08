@@ -47,9 +47,9 @@ This is a self-hosted side project for a private Discord server.
 
 ## Discord commands
 
-`BOT_PROFILE=minimal` is the default runtime profile. It registers only `/status`, `/metrics-palworld` and `/resume-hier`, disables automatic server reconciliation, and does not subscribe to member, voice or presence events. Use `BOT_PROFILE=full` temporarily when the complete administration, Pokédex and Stats feature set is required.
+`BOT_PROFILE=minimal` is the safe default. `BOT_PROFILE=pokemon` adds the six public Pokédex commands while keeping automatic server reconciliation, member events, voice events and presence events disabled. Use `BOT_PROFILE=full` only when the complete administration and Stats feature set is required.
 
-The production VPS stays on `minimal`. The complete 17-command catalog remains in the image and test suite, but disabled commands are not registered in Discord. Changing the profile is an explicit production operation, not a troubleshooting step.
+The production VPS runs `pokemon`: `/status`, `/metrics-palworld`, `/resume-hier`, `/pokemon`, `/weakness`, `/move`, `/ability`, `/type` and `/random-pokemon`. The sensitive administration commands remain unregistered. Changing the profile is an explicit production operation, not a troubleshooting step.
 
 ### Admin-only
 

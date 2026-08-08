@@ -70,19 +70,20 @@ Nom du stack: `NeatherBeacon`
 
 ## Profils De Commandes
 
-Le profil de production est `BOT_PROFILE=minimal`. Il enregistre exactement:
+Le profil de production est `BOT_PROFILE=pokemon`. Il enregistre exactement:
 
 - `/status`: admin seulement
 - `/metrics-palworld`: public, cooldown global de quatre minutes
 - `/resume-hier`: public, cooldown par utilisateur et salon Palworld autorise
+- `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`: public, cooldown par utilisateur
 
-Le profil `full` contient 17 commandes et ajoute temporairement:
+Le profil `minimal` retire les six commandes Pokédex et conserve seulement les trois premières commandes. Le profil `full` contient 17 commandes et ajoute temporairement:
 
 - admin: `/audit`, `/resync`, `/help`, `/welcome-preview`, `/stats-refresh`, `/diag`, `/cache-status`
 - admin/modo: `/announce-palworld`
 - public Pokédex: `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`
 
-Les commandes absentes du profil actif sont refusees par le runtime et ne sont pas enregistrees dans Discord. Ne pas passer la production en `full` pour tester Pokémon: utiliser le probe direct ci-dessous. Un changement de profil modifie aussi les intents Discord, la reconciliation automatique et les listeners membres/vocal/presence.
+Les commandes absentes du profil actif sont refusees par le runtime et ne sont pas enregistrees dans Discord. Le profil `pokemon` conserve les intents minimaux; seul `full` active la reconciliation automatique et les listeners membres/vocal/presence.
 
 Verification du catalogue:
 
@@ -156,7 +157,7 @@ Une modification du coffre ne redemarre pas automatiquement le conteneur sous Do
 - `no-new-privileges:true`
 - `/tmp` en `tmpfs`
 - volume Muse persistant `example-muse-data`
-- profil de commandes `minimal`
+- profil de commandes `pokemon`
 
 ## Creation Des 2 Bots Discord
 
@@ -378,7 +379,7 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
   - verifier `BOT_PALWORLD_REST_API_USERNAME`
   - verifier que le mot de passe REST est configure localement
 - si une commande Pokédex echoue:
-  - confirmer que le profil Discord actif est `full`; en `minimal`, elle est volontairement absente
+  - confirmer que le profil Discord actif est `pokemon` ou `full`; en `minimal`, elle est volontairement absente
   - lancer `npm run verify:pokedex` pour separer un probleme PokéAPI d'un probleme Discord
   - verifier les droits d'ecriture de `runtime/pokedex-cache`
 - si le deploiement VPS ne voit pas une nouvelle valeur DockPanel:
