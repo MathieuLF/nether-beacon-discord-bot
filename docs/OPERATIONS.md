@@ -70,20 +70,18 @@ Nom du stack: `NeatherBeacon`
 
 ## Profils De Commandes
 
-Le profil de production est `BOT_PROFILE=pokemon`. Il enregistre exactement:
+Le profil de production est `BOT_PROFILE=full`. Il enregistre les 17 commandes:
 
 - `/status`: admin seulement
 - `/metrics-palworld`: public, cooldown global de quatre minutes
 - `/resume-hier`: public, cooldown par utilisateur et salon Palworld autorise
 - `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`: public, cooldown par utilisateur
+- `/audit`, `/resync`, `/help`, `/welcome-preview`, `/stats-refresh`, `/diag`, `/cache-status`: admin seulement
+- `/announce-palworld`: admin/modo, salon autorise et cooldown global
 
-Le profil `minimal` retire les six commandes Pokédex et conserve seulement les trois premières commandes. Le profil `full` contient 17 commandes et ajoute temporairement:
+Le profil `pokemon` conserve les neuf commandes publiques/admin ci-dessus sans les huit commandes d'administration et de staff. Le profil `minimal` retire aussi les six commandes Pokédex et conserve seulement `/status`, `/metrics-palworld` et `/resume-hier`.
 
-- admin: `/audit`, `/resync`, `/help`, `/welcome-preview`, `/stats-refresh`, `/diag`, `/cache-status`
-- admin/modo: `/announce-palworld`
-- public Pokédex: `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`
-
-Les commandes absentes du profil actif sont refusees par le runtime et ne sont pas enregistrees dans Discord. Le profil `pokemon` conserve les intents minimaux; seul `full` active la reconciliation automatique et les listeners membres/vocal/presence.
+Le profil `full` active aussi la reconciliation additive au demarrage, les Stats et les listeners membres/vocal/presence. Les commandes absentes d'un profil reduit sont refusees par le runtime et ne sont pas enregistrees dans Discord.
 
 Verification du catalogue:
 
@@ -157,7 +155,7 @@ Une modification du coffre ne redemarre pas automatiquement le conteneur sous Do
 - `no-new-privileges:true`
 - `/tmp` en `tmpfs`
 - volume Muse persistant `example-muse-data`
-- profil de commandes `pokemon`
+- profil de commandes `full`
 
 ## Creation Des 2 Bots Discord
 
