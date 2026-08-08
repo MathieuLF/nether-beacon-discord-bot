@@ -3,47 +3,54 @@ const test = require('node:test');
 const {
   buildDailySummaryMessage,
   createDailySummarySettings,
+  getPreviousLocalDateKey,
   getSummaryUrl,
-  hasDailySummaryBeenSent,
-  markDailySummarySent,
-  normalizeDailySummaryState,
-  shouldRunDailySummary,
 } = require('../lib/daily-summary');
 
-test('daily summary defaults to Palworld and yesterday at 01:00 America/Toronto', () => {
+test('manual daily summary defaults to Palworld and the previous Toronto day', () => {
   const settings = createDailySummarySettings({
     BOT_PALWORLD_CHANNEL_NAME: '🐾・palworld',
     BOT_TIMEZONE: 'America/Toronto',
   });
 
-  assert.deepEqual(settings.channelNames, ['🐾・palworld']);
-  assert.equal(settings.hour, 1);
-  assert.equal(settings.minute, 0);
+  assert.deepEqual(settings.commandChannelNames, ['🐾・palworld']);
 
-  const schedule = shouldRunDailySummary(new Date('2026-07-17T05:00:00.000Z'), settings);
-
-  assert.equal(schedule.due, true);
-  assert.equal(schedule.dateKey, '2026-07-16');
-  assert.equal(getSummaryUrl(settings, schedule.dateKey), 'https://gaylemon.mathieu.pro/resume?jour=2026-07-16');
+  const dateKey = getPreviousLocalDateKey(new Date('2026-07-17T05:00:00.000Z'), settings.timeZone);
+  assert.equal(dateKey, '2026-07-16');
+  assert.equal(getSummaryUrl(settings, dateKey), 'https://gaylemon.mathieu.pro/resume?jour=2026-07-16');
 });
 
-test('daily summary accepts explicit channel ids and names', () => {
+test('legacy schedule variables cannot reactivate automatic publication', () => {
   const settings = createDailySummarySettings({
-    GAYLEMON_DAILY_SUMMARY_CHANNEL_IDS: '111,222',
+    GAYLEMON_DAILY_SUMMARY_HOUR: '1',
+    GAYLEMON_DAILY_SUMMARY_MINUTE: '0',
+    GAYLEMON_DAILY_SUMMARY_POST_WINDOW_MINUTES: '120',
+    GAYLEMON_DAILY_SUMMARY_CHANNEL_IDS: '111',
     GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES: '🐾・palworld',
-    GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS: '333',
   });
 
-  assert.deepEqual(settings.channelIds, ['111', '222']);
-  assert.deepEqual(settings.channelNames, ['🐾・palworld']);
+  assert.equal('hour' in settings, false);
+  assert.equal('minute' in settings, false);
+  assert.equal('postWindowMinutes' in settings, false);
+  assert.equal('channelIds' in settings, false);
+  assert.equal('channelNames' in settings, false);
+});
+
+test('manual daily summary accepts explicit command channel ids and names', () => {
+  const settings = createDailySummarySettings({
+    GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS: '333',
+    GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES: '🐾・palworld',
+  });
+
   assert.deepEqual(settings.commandChannelIds, ['333']);
+  assert.deepEqual(settings.commandChannelNames, ['🐾・palworld']);
 });
 
 test('daily summary message keeps the link in plain text without buttons or redundant fields', () => {
   const settings = createDailySummarySettings({
     BOT_PALWORLD_CHANNEL_NAME: '🐾・palworld',
   });
-  const payload = buildDailySummaryMessage(settings, '2026-07-16', { ok: true }, 'scheduled');
+  const payload = buildDailySummaryMessage(settings, '2026-07-16');
   const embed = payload.embeds[0].toJSON();
 
   assert.equal(payload.components, undefined);
@@ -52,23 +59,4 @@ test('daily summary message keeps the link in plain text without buttons or redu
   assert.match(embed.description, /https:\/\/gaylemon\.mathieu\.pro\/resume\?jour=2026-07-16/);
   assert.doesNotMatch(embed.description, /sont réunis au même endroit/);
   assert.doesNotMatch(embed.description, /mise à jour/);
-});
-
-test('daily summary state is idempotent per date and channel', () => {
-  let state = normalizeDailySummaryState(null, 'guild-1');
-
-  assert.equal(hasDailySummaryBeenSent(state, '2026-07-21', 'channel-1'), false);
-
-  state = markDailySummarySent(
-    state,
-    '2026-07-21',
-    { id: 'channel-1', name: '🐾・palworld' },
-    { ok: true, detail: 'resume-et-index-disponibles' },
-    '2026-07-22T05:00:00.000Z',
-  );
-
-  assert.equal(hasDailySummaryBeenSent(state, '2026-07-21', 'channel-1'), true);
-  assert.equal(hasDailySummaryBeenSent(state, '2026-07-21', 'channel-2'), false);
-  assert.equal(hasDailySummaryBeenSent(state, '2026-07-20', 'channel-1'), false);
-  assert.equal(state.dates['2026-07-21'].channels['channel-1'].verified, true);
 });

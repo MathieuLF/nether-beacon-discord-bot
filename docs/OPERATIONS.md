@@ -46,7 +46,7 @@ Nom du stack: `NeatherBeacon`
 - `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite mis en cache, types, abilities, stats, species, labels, egg groups et evolution quand disponible
 - commande publique `/metrics-palworld` via les JSON publics filtres Gaylemon, avec cooldown global de 4 minutes
 - commande staff `/announce-palworld` pour publier une annonce dans Discord et la relayer en jeu via `POST /announce`
-- publication automatique du resume Gaylemon de la veille vers 01:00 dans le salon Palworld
+- aucune publication automatique du resume Gaylemon dans Discord; le recap reste disponible sur le site
 - commande publique `/resume-hier` dans le salon Palworld
 - logs entree/sortie/deplacement vocal
 - commandes slash admin:
@@ -173,33 +173,28 @@ Quand `BOT_PALWORLD_REST_API_URL`, `BOT_PALWORLD_REST_API_USERNAME` et `BOT_PALW
 
 ## Resume Quotidien Gaylemon
 
-Alpha calcule la veille selon le fuseau configure et publie le lien direct vers:
+Alpha ne publie plus le resume quotidien automatiquement. Les membres peuvent consulter directement le site Gaylemon ou utiliser `/resume-hier` pour obtenir, a la demande, le lien de la veille:
 
 ```text
 https://gaylemon.mathieu.pro/resume?jour=YYYY-MM-DD
 ```
 
-Configuration par defaut:
+Comportement:
 
-- heure: `01:00`
-- fuseau: `America/Toronto`
-- salon: `🐾・palworld`
+- aucune notification Discord planifiee
+- fuseau utilise pour calculer la veille: `America/Toronto`
 - commande publique: `/resume-hier`
-- etat anti-doublon: `runtime/daily-summary-state.json`
+- salon autorise pour la commande: `🐾・palworld`
 
 Variables:
 
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro`
 - `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`
-- `GAYLEMON_DAILY_SUMMARY_HOUR=1`
-- `GAYLEMON_DAILY_SUMMARY_MINUTE=0`
-- `GAYLEMON_DAILY_SUMMARY_POST_WINDOW_MINUTES=120`
 - `GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS=5000`
-- `GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES=🐾・palworld`
 - `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES=🐾・palworld`
-- `GAYLEMON_DAILY_SUMMARY_CHANNEL_IDS=` et `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS=` sont preferables si les noms deviennent ambigus.
+- `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS=` est preferable si les noms deviennent ambigus.
 
-Le bot sonde `/resume?jour=...` et `data/public-events-index.json` avant publication. Le message public reste volontairement court: titre, phrase de recap et lien direct.
+Lors de l utilisation de `/resume-hier`, le bot sonde `/resume?jour=...` et `data/public-events-index.json` avant de repondre. Le message public reste volontairement court: titre, phrase de recap et lien direct.
 
 ## Update
 
@@ -246,10 +241,9 @@ Ces variables ont des valeurs par defaut dans `.env.example`:
 - `BOT_PALWORLD_ADMIN_COOLDOWN_MS=30000`: cooldown global des commandes admin Palworld
 - `BOT_PALWORLD_ADMIN_CHANNEL_NAMES=🐾・palworld`: salons autorises pour les commandes admin Palworld
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro`: base publique du microsite Gaylemon
-- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`: fuseau du calcul de la veille
-- `GAYLEMON_DAILY_SUMMARY_HOUR=1`: heure locale de publication du resume
-- `GAYLEMON_DAILY_SUMMARY_MINUTE=0`: minute locale de publication du resume
-- `GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES=🐾・palworld`: salon cible de publication
+- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto`: fuseau du calcul de la veille pour `/resume-hier`
+- `GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS=5000`: delai maximal de verification du recap demande
+- `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES=🐾・palworld`: salons autorises pour `/resume-hier`
 
 ## Build Sans Redemarrage
 
@@ -273,7 +267,6 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
 - verifier le volume Docker `example-muse-data`
 - verifier `C:\Projects\nether-beacon\runtime\admin-heartbeat.json` et `C:\Projects\nether-beacon\runtime\supervisor-state.json`
 - verifier `C:\Projects\nether-beacon\runtime\managed-ids.json` apres gros changement manuel de structure
-- verifier `C:\Projects\nether-beacon\runtime\daily-summary-state.json` si le resume Gaylemon se repete ou ne part pas
 - `C:\Projects\nether-beacon\runtime\pokedex-cache` est un cache PokéAPI recréable pour les JSON, evolutions et images
 - garder les tokens Discord valides
 - relancer `/audit` apres tout gros changement manuel du serveur

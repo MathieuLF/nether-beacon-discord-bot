@@ -41,7 +41,7 @@ This is a self-hosted side project for a private Discord server.
 | Music | Muse in the same container, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
 | Palworld | Public `/metrics-palworld` from filtered Gaylemon JSON and staff `/announce-palworld` relayed in game |
-| Gaylemon daily recap | Automatic `/resume?jour=YYYY-MM-DD` link posted around 01:00 in Palworld, plus `/resume-hier` |
+| Gaylemon daily recap | Recap available on the Gaylemon site and on demand with `/resume-hier`; no automatic Discord post |
 | Operations | Docker Desktop, local healthcheck, restart notice script |
 | Website | static microsite in `docs/` |
 
@@ -97,18 +97,17 @@ The local admin REST API is used only for staff actions:
 
 ## Gaylemon daily recap
 
-Alpha posts a direct link to the previous local day on the Gaylemon microsite:
+Alpha no longer posts a daily recap automatically. The recap remains available directly on the Gaylemon microsite, and `/resume-hier` can still return the previous local day's link on demand:
 
 ```text
 https://gaylemon.mathieu.pro/resume?jour=YYYY-MM-DD
 ```
 
-- default schedule: `01:00` in `America/Toronto`
-- default target channel: `🐾・palworld`
+- no scheduled Discord notification
+- local day boundary: `America/Toronto`
 - manual public command: `/resume-hier`
-- anti-replay state: `runtime/daily-summary-state.json`
 
-The bot checks `/resume?jour=...` and `data/public-events-index.json` before sending, while the public Discord message stays concise: title, short recap text, and the direct link.
+When `/resume-hier` is used, the bot checks `/resume?jour=...` and `data/public-events-index.json` before replying. The Discord response stays concise: title, short recap text, and the direct link.
 
 ## Repository layout
 
@@ -178,7 +177,6 @@ Recreatable runtime caches:
 - `runtime/pokedex-cache`
 - `runtime/admin-state.json`
 - `runtime/managed-ids.json`
-- `runtime/daily-summary-state.json`
 
 ## Optional runtime tuning
 
@@ -199,9 +197,9 @@ Defaults are documented in `.env.example`:
 - `BOT_PALWORLD_ADMIN_COOLDOWN_MS=30000` controls the global cooldown for staff Palworld admin commands.
 - `BOT_PALWORLD_ADMIN_CHANNEL_NAMES=🐾・palworld` allowlists where staff Palworld admin commands can run. Prefer `BOT_PALWORLD_ADMIN_CHANNEL_IDS` if names ever become ambiguous.
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro` controls the recap microsite base URL.
-- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary.
-- `GAYLEMON_DAILY_SUMMARY_HOUR=1` and `GAYLEMON_DAILY_SUMMARY_MINUTE=0` control the automatic post time.
-- `GAYLEMON_DAILY_SUMMARY_CHANNEL_NAMES=🐾・palworld` controls where the recap is posted. Prefer `GAYLEMON_DAILY_SUMMARY_CHANNEL_IDS` if names ever become ambiguous.
+- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary used by `/resume-hier`.
+- `GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS=5000` limits the availability check made by `/resume-hier`.
+- `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES=🐾・palworld` controls where `/resume-hier` can be used. Prefer `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS` if names ever become ambiguous.
 
 ## Public GitHub readiness
 
