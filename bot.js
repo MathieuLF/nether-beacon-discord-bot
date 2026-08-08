@@ -38,7 +38,6 @@ const {
   createAdminState,
   readJson,
   updateRuntimeFiles: writeRuntimeFiles,
-  writeJson,
 } = require('./lib/runtime-state');
 const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
 const {
@@ -56,11 +55,7 @@ const {
   buildDailySummaryMessage,
   createDailySummarySettings,
   getPreviousLocalDateKey,
-  hasDailySummaryBeenSent: hasDailySummaryBeenSentInState,
   inspectSummaryAvailability,
-  markDailySummarySent: markDailySummarySentInState,
-  normalizeDailySummaryState,
-  shouldRunDailySummary,
 } = require('./lib/daily-summary');
 const {
   autocompletePokedex,
@@ -98,7 +93,6 @@ const dailySummarySettings = createDailySummarySettings(
     BOT_TIMEZONE,
     GAYLEMON_PUBLIC_BASE_URL: env.GAYLEMON_PUBLIC_BASE_URL,
   },
-  plan,
 );
 const PALWORLD_REST_API_URL = env.BOT_PALWORLD_REST_API_URL;
 const PALWORLD_REST_API_USERNAME = env.BOT_PALWORLD_REST_API_USERNAME;
@@ -208,28 +202,6 @@ const state = createAdminState({
   version: pkg.version,
   guildId: GUILD_ID,
 });
-
-const readDailySummaryState = () => {
-  return normalizeDailySummaryState(readJson(paths.dailySummaryStatePath), GUILD_ID);
-};
-
-const writeDailySummaryState = (payload) => {
-  writeJson(paths.dailySummaryStatePath, {
-    version: 1,
-    guildId: GUILD_ID,
-    ...payload,
-  });
-};
-
-let dailySummaryState = readDailySummaryState();
-
-const hasDailySummaryBeenSent = (dateKey, channelId) =>
-  hasDailySummaryBeenSentInState(dailySummaryState, dateKey, channelId);
-
-const markDailySummarySent = (dateKey, channel, availability) => {
-  dailySummaryState = markDailySummarySentInState(dailySummaryState, dateKey, channel, availability);
-  writeDailySummaryState(dailySummaryState);
-};
 
 const withTimeout = async (promise, timeoutMs, label) => {
   let timer = null;
@@ -383,13 +355,9 @@ const normalizeSummaryChannelName = (value) =>
 const isSendableTextChannel = (channel) =>
   channel?.isTextBased?.() && typeof channel.send === 'function';
 
-const resolveDailySummaryChannels = async (guild, forCommand = false) => {
-  const ids = forCommand
-    ? dailySummarySettings.commandChannelIds
-    : dailySummarySettings.channelIds;
-  const names = forCommand
-    ? dailySummarySettings.commandChannelNames
-    : dailySummarySettings.channelNames;
+const resolveDailySummaryChannels = async (guild) => {
+  const ids = dailySummarySettings.commandChannelIds;
+  const names = dailySummarySettings.commandChannelNames;
   const normalizedNames = new Set(names.map(normalizeSummaryChannelName).filter(Boolean));
   const channels = new Map();
 
@@ -447,36 +415,8 @@ const resolvePalworldAdminChannels = async (guild) => {
   return [...channels.values()];
 };
 
-const sendDailySummaryToChannels = async (guild, dateKey, channels, origin) => {
-  const availability = await inspectSummaryAvailability(dailySummarySettings, dateKey);
-  const payload = buildDailySummaryMessage(dailySummarySettings, dateKey, availability, origin);
-  const sentChannels = [];
-
-  for (const channel of channels) {
-    if (!isSendableTextChannel(channel)) continue;
-    await channel.send(payload);
-    sentChannels.push(channel);
-
-    if (origin === 'scheduled') {
-      markDailySummarySent(dateKey, channel, availability);
-    }
-  }
-
-  state.lastDailySummary = {
-    at: new Date().toISOString(),
-    dateKey,
-    origin,
-    channels: sentChannels.map((channel) => channel.id),
-    verified: Boolean(availability.ok),
-    detail: availability.detail,
-  };
-  updateRuntimeFiles();
-
-  return { availability, sentChannels };
-};
-
 const handleDailySummaryCommand = async (interaction, guild) => {
-  const allowedChannels = await resolveDailySummaryChannels(guild, true);
+  const allowedChannels = await resolveDailySummaryChannels(guild);
   const isAllowed = allowedChannels.some((channel) => channel.id === interaction.channelId);
 
   if (!isAllowed) {
@@ -495,7 +435,7 @@ const handleDailySummaryCommand = async (interaction, guild) => {
   await interaction.deferReply();
   const dateKey = getPreviousLocalDateKey(new Date(), dailySummarySettings.timeZone);
   const availability = await inspectSummaryAvailability(dailySummarySettings, dateKey);
-  await interaction.editReply(buildDailySummaryMessage(dailySummarySettings, dateKey, availability, 'manual'));
+  await interaction.editReply(buildDailySummaryMessage(dailySummarySettings, dateKey, availability));
   state.lastDailySummary = {
     at: new Date().toISOString(),
     dateKey,
@@ -510,70 +450,6 @@ const handleDailySummaryCommand = async (interaction, guild) => {
     formatLine('Journée', dateKey),
     formatLine('Vérifié', availability.ok ? 'oui' : 'non'),
   ]));
-};
-
-const runDailySummarySchedulerTick = async (guild, origin) => {
-  const schedule = shouldRunDailySummary(new Date(), dailySummarySettings);
-  if (!schedule.due) return;
-
-  const channels = await resolveDailySummaryChannels(guild, false);
-  if (!channels.length) {
-    throw new Error(`aucun salon de résumé Gaylemon trouvé (${dailySummarySettings.channelNames.join(', ')})`);
-  }
-
-  const pendingChannels = channels.filter((channel) => !hasDailySummaryBeenSent(schedule.dateKey, channel.id));
-  if (!pendingChannels.length) return;
-
-  const { availability, sentChannels } = await sendDailySummaryToChannels(guild, schedule.dateKey, pendingChannels, 'scheduled');
-  await sendLog(guild, formatBotMessage('📊 Résumé Gaylemon quotidien', [
-    formatLine('Origine', origin),
-    formatLine('Journée', schedule.dateKey),
-    formatLine('Salons', sentChannels.map((channel) => `<#${channel.id}>`).join(', ')),
-    formatLine('Vérifié', availability.ok ? 'oui' : 'non'),
-  ]));
-};
-
-let dailySummaryPollTimer = null;
-let dailySummaryPollInFlight = false;
-
-const startDailySummaryScheduler = (guild) => {
-  if (dailySummaryPollTimer) return;
-
-  dailySummaryPollTimer = setInterval(async () => {
-    if (dailySummaryPollInFlight) return;
-    dailySummaryPollInFlight = true;
-
-    try {
-      const latestGuild = client.guilds.cache.get(GUILD_ID) || guild;
-      await runDailySummarySchedulerTick(latestGuild, 'timer');
-    } catch (error) {
-      await sendLog(guild, formatBotMessage('⚠️ Résumé Gaylemon non publié', [
-        formatLine('État', 'publication temporairement indisponible'),
-      ]));
-      state.lastError = 'daily-summary: publication-indisponible';
-      updateRuntimeFiles();
-    } finally {
-      dailySummaryPollInFlight = false;
-    }
-  }, 60 * 1000);
-
-  dailySummaryPollTimer.unref();
-  setTimeout(async () => {
-    if (dailySummaryPollInFlight) return;
-    dailySummaryPollInFlight = true;
-
-    try {
-      await runDailySummarySchedulerTick(guild, 'startup');
-    } catch (error) {
-      state.lastError = 'daily-summary-startup: publication-indisponible';
-      updateRuntimeFiles();
-      await sendLog(guild, formatBotMessage('⚠️ Résumé Gaylemon non publié au démarrage', [
-        formatLine('État', 'publication temporairement indisponible'),
-      ]));
-    } finally {
-      dailySummaryPollInFlight = false;
-    }
-  }, 10 * 1000).unref();
 };
 
 const sendPalworldPublicMessage = async (guild, message) => {
@@ -1280,7 +1156,7 @@ const helpText = [
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
   '- Palworld: statut public Gaylemon et annonces staff vers le jeu',
-  '- résumé Gaylemon de la veille publié automatiquement vers 01:00 dans Palworld',
+  '- résumé Gaylemon de la veille disponible à la demande avec `/resume-hier`',
   '- Muse auto-hébergé dans le même conteneur',
   `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
   `- commande admin/modo: ${formatCommandList(['/announce-palworld'])}`,
@@ -1341,7 +1217,6 @@ client.once('clientReady', async () => {
 
     await refreshStatsDisplaySafe(guild, 'startup');
     startStatsScheduler();
-    startDailySummaryScheduler(guild);
 
     await sendLog(
       guild,
