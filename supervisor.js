@@ -3,6 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { config } = require('dotenv');
 const { validateBotEnvironment } = require('./lib/env');
+const { buildMuseEnv } = require('./lib/muse-env');
 
 config();
 validateBotEnvironment(process.env);
@@ -54,21 +55,6 @@ const pipeWithPrefix = (stream, prefix, output) => {
     }
   });
 };
-
-const buildMuseEnv = () => ({
-  ...process.env,
-  DISCORD_TOKEN: process.env.MUSE_DISCORD_TOKEN,
-  YOUTUBE_API_KEY: process.env.MUSE_YOUTUBE_API_KEY || '',
-  SPOTIFY_CLIENT_ID: process.env.MUSE_SPOTIFY_CLIENT_ID || '',
-  SPOTIFY_CLIENT_SECRET: process.env.MUSE_SPOTIFY_CLIENT_SECRET || '',
-  CACHE_LIMIT: process.env.MUSE_CACHE_LIMIT || '2GB',
-  YT_DLP_AUTO_UPDATE: process.env.MUSE_YT_DLP_AUTO_UPDATE || 'true',
-  ENABLE_SPONSORBLOCK: process.env.MUSE_ENABLE_SPONSORBLOCK || 'false',
-  BOT_STATUS: process.env.MUSE_BOT_STATUS || 'online',
-  BOT_ACTIVITY_TYPE: process.env.MUSE_BOT_ACTIVITY_TYPE || 'LISTENING',
-  BOT_ACTIVITY: process.env.MUSE_BOT_ACTIVITY || 'Music',
-  ENV_FILE: '/bot/muse.env',
-});
 
 const spawnChild = (name, command, args, options) => {
   const child = spawn(command, args, {

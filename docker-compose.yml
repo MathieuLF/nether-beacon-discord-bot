@@ -7,6 +7,12 @@ services:
     container_name: nether-beacon
     env_file: .env
     restart: always
+    cpus: 1.0
+    mem_limit: 512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - muse-data:/data
       - ./runtime:/bot/runtime

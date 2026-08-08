@@ -47,6 +47,8 @@ This is a self-hosted side project for a private Discord server.
 
 ## Discord commands
 
+`BOT_PROFILE=minimal` is the default runtime profile. It registers only `/status`, `/metrics-palworld` and `/resume-hier`, disables automatic server reconciliation, and does not subscribe to member, voice or presence events. Use `BOT_PROFILE=full` temporarily when the complete administration, Pokédex and Stats feature set is required.
+
 ### Admin-only
 
 - `/status` - Alpha, Bravo, runtime and cache status.

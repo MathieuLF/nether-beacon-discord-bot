@@ -7,6 +7,7 @@ const {
   STAFF_COMMAND_NAMES,
   commandHash,
   commandPayload,
+  commandPayloadForProfile,
   commandPayloadHash,
   summarizeCommandDiff,
 } = require('../lib/commands');
@@ -20,6 +21,15 @@ test('command hash is stable and command diff reports missing and extra names', 
   assert.ok(diff.missing.includes('diag'));
   assert.ok(diff.missing.includes('cache-status'));
   assert.deepEqual(diff.extra, ['legacy-command']);
+});
+
+test('minimal profile exposes only the three approved commands', () => {
+  assert.deepEqual(
+    commandPayloadForProfile('minimal').map((command) => command.name),
+    ['status', 'metrics-palworld', 'resume-hier'],
+  );
+  assert.equal(commandPayloadForProfile('full'), commandPayload);
+  assert.throws(() => commandPayloadForProfile('unknown'), /Unknown bot profile/);
 });
 
 test('Pokédex slash command options expose autocomplete', () => {

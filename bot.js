@@ -19,8 +19,8 @@ const {
 const {
   POKEDEX_COMMAND_NAMES,
   STAFF_COMMAND_NAMES,
-  commandHash,
-  commandPayload,
+  commandPayloadForProfile,
+  commandPayloadHash,
 } = require('./lib/commands');
 const {
   formatCacheStatus,
@@ -71,6 +71,11 @@ const pkg = require('./package.json');
 const BOT_TOKEN = env.DISCORD_BOT_TOKEN;
 const GUILD_ID = env.DISCORD_GUILD_ID;
 const BOT_TIMEZONE = env.BOT_TIMEZONE;
+const BOT_PROFILE = env.BOT_PROFILE;
+const FULL_PROFILE_ENABLED = BOT_PROFILE === 'full';
+const commandPayload = commandPayloadForProfile(BOT_PROFILE);
+const enabledCommandNames = new Set(commandPayload.map((command) => command.name));
+const commandHash = commandPayloadHash(commandPayload);
 
 fs.mkdirSync(paths.runtimeDir, { recursive: true });
 
@@ -233,14 +238,16 @@ const startHeartbeat = () => {
   setInterval(updateRuntimeFiles, 15000).unref();
 };
 
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
+const gatewayIntents = [GatewayIntentBits.Guilds];
+if (FULL_PROFILE_ENABLED) {
+  gatewayIntents.push(
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildPresences,
-  ],
-});
+  );
+}
+
+const client = new Client({ intents: gatewayIntents });
 
 const hasAdminAccess = (interaction) => {
   return interactionHasAdminAccess(interaction, ADMIN_ROLE_NAME);
@@ -873,6 +880,7 @@ const summarizeStatus = (guild) => {
     '',
     '**État général**',
     formatLine('Version', state.version),
+    formatLine('Profil', BOT_PROFILE),
     formatLine('Uptime', formatDuration(state.startedAt)),
     formatLine('Serveur', `${guild.name} (${guild.id})`),
     formatLine('Alpha', adminState?.running ? 'en ligne' : 'hors ligne'),
@@ -1208,21 +1216,22 @@ client.once('clientReady', async () => {
 
     await registerSlashCommands(guild);
 
-    const startupReport = await runSync(guild, 'startup');
-    state.eventChannelId = startupReport.eventChannelId || state.eventChannelId;
-    state.logChannelId = startupReport.logChannelId || state.logChannelId;
+    let startupReport = null;
+    if (FULL_PROFILE_ENABLED) {
+      startupReport = await runSync(guild, 'startup');
+      state.eventChannelId = startupReport.eventChannelId || state.eventChannelId;
+      state.logChannelId = startupReport.logChannelId || state.logChannelId;
+    }
     state.readyAt = new Date().toISOString();
     state.healthy = true;
     updateRuntimeFiles();
 
-    await refreshStatsDisplaySafe(guild, 'startup');
-    startStatsScheduler();
-
-    await sendLog(
-      guild,
-      buildStartupLogMessage(startupReport),
-    );
-    console.log(`Admin bot ready for guild ${guild.name} (${guild.id}).`);
+    if (FULL_PROFILE_ENABLED) {
+      await refreshStatsDisplaySafe(guild, 'startup');
+      startStatsScheduler();
+      await sendLog(guild, buildStartupLogMessage(startupReport));
+    }
+    console.log(`Admin bot ready for guild ${guild.name} (${guild.id}) with ${BOT_PROFILE} profile.`);
   } catch (error) {
     state.lastError = sanitizePalworldText(error?.message || 'startup failed', knownSecretValues());
     state.healthy = false;
@@ -1234,7 +1243,11 @@ client.once('clientReady', async () => {
 
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isAutocomplete()) {
-    if (interaction.guildId !== GUILD_ID || !POKEDEX_COMMAND_NAMES.has(interaction.commandName)) {
+    if (
+      interaction.guildId !== GUILD_ID
+      || !enabledCommandNames.has(interaction.commandName)
+      || !POKEDEX_COMMAND_NAMES.has(interaction.commandName)
+    ) {
       await interaction.respond([]).catch(() => undefined);
       return;
     }
@@ -1254,6 +1267,14 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.guildId !== GUILD_ID) {
     await interaction.reply({
       content: formatBotMessage('⛔ Mauvais serveur', ["Ce bot ne gère qu'un seul serveur cible."]),
+      ephemeral: true,
+    }).catch(() => undefined);
+    return;
+  }
+
+  if (!enabledCommandNames.has(interaction.commandName)) {
+    await interaction.reply({
+      content: formatBotMessage('🔒 Commande désactivée', ['Cette commande ne fait pas partie du profil actif.']),
       ephemeral: true,
     }).catch(() => undefined);
     return;
@@ -1491,6 +1512,7 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.on('guildMemberAdd', async (member) => {
+  if (!FULL_PROFILE_ENABLED) return;
   if (member.guild.id !== GUILD_ID) return;
   await assignDefaultMemberRole(member);
   await sendEventLog(member.guild, formatBotMessage('✨ Nouveau membre', [
@@ -1506,6 +1528,7 @@ client.on('guildMemberAdd', async (member) => {
 });
 
 client.on('guildMemberRemove', async (member) => {
+  if (!FULL_PROFILE_ENABLED) return;
   if (member.guild.id !== GUILD_ID) return;
   await sendEventLog(member.guild, formatBotMessage('👋 Départ', [
     `${formatMember(member)} vient de quitter le serveur.`,
@@ -1516,6 +1539,7 @@ client.on('guildMemberRemove', async (member) => {
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
+  if (!FULL_PROFILE_ENABLED) return;
   if (oldState.guildId !== GUILD_ID) return;
   if (oldState.channelId === newState.channelId) return;
 
@@ -1549,6 +1573,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 });
 
 client.on('presenceUpdate', async (oldPresence, newPresence) => {
+  if (!FULL_PROFILE_ENABLED) return;
   const guild = newPresence?.guild || oldPresence?.guild;
   if (!guild || guild.id !== GUILD_ID) return;
 

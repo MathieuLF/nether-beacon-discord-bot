@@ -12,9 +12,18 @@ const baseEnv = {
 test('environment validation defaults Palworld public HTTP settings to short safe values', () => {
   const env = validateBotEnvironment(baseEnv);
 
+  assert.equal(env.BOT_PROFILE, 'minimal');
   assert.equal(env.BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS, 5000);
   assert.equal(env.BOT_PALWORLD_PUBLIC_CACHE_TTL_MS, 15000);
   assert.equal(env.BOT_PALWORLD_REST_FETCH_TIMEOUT_MS, 5000);
+});
+
+test('environment validation accepts full profile and rejects unknown profiles', () => {
+  assert.equal(validateBotEnvironment({ ...baseEnv, BOT_PROFILE: 'full' }).BOT_PROFILE, 'full');
+  assert.throws(
+    () => validateBotEnvironment({ ...baseEnv, BOT_PROFILE: 'public' }),
+    /BOT_PROFILE must be minimal or full/,
+  );
 });
 
 test('environment validation rejects partial Palworld REST admin config', () => {

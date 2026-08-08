@@ -78,20 +78,16 @@ if (-not (Test-Path -LiteralPath $envPath)) {
   throw "Missing .env at $envPath"
 }
 
-if (-not (Test-Path -LiteralPath $adminStatePath)) {
-  throw "Missing admin state at $adminStatePath; cannot find the logs channel before restart."
-}
-
 $envValues = Read-DotEnv -Path $envPath
 $token = $envValues['DISCORD_BOT_TOKEN']
 if (-not $token) {
   throw 'Missing DISCORD_BOT_TOKEN in .env'
 }
 
-$adminState = Get-Content -LiteralPath $adminStatePath -Raw | ConvertFrom-Json
-$logChannelId = [string] $adminState.logChannelId
-if (-not $logChannelId) {
-  throw 'Missing logChannelId in runtime/admin-state.json; run /resync or /status before using this script.'
+$logChannelId = ''
+if (Test-Path -LiteralPath $adminStatePath) {
+  $adminState = Get-Content -LiteralPath $adminStatePath -Raw | ConvertFrom-Json
+  $logChannelId = [string] $adminState.logChannelId
 }
 
 $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
@@ -106,19 +102,23 @@ Une mise à jour est en cours. Alpha et Bravo peuvent disparaître quelques seco
 **Déclenché**
 - $timestamp
 
-Je reviens avec un message vert dès que le démarrage est terminé.
+Le healthcheck Docker vérifiera le retour des deux bots.
 "@
 
-try {
-  Send-DiscordLogMessage -Token $token -ChannelId $logChannelId -Content $message
-} catch {
-  Write-Warning "Could not send the Discord restart notice: $($_.Exception.Message)"
+if ($logChannelId) {
+  try {
+    Send-DiscordLogMessage -Token $token -ChannelId $logChannelId -Content $message
+  } catch {
+    Write-Warning "Could not send the Discord restart notice: $($_.Exception.Message)"
+  }
+} else {
+  Write-Warning 'No runtime log channel is available; restarting without a Discord notice.'
 }
 
 Push-Location -LiteralPath $projectRoot
 try {
   Remove-WrongOriginContainer -ContainerName 'nether-beacon' -ExpectedWorkingDir $projectRoot
-  docker compose up -d --build
+  docker compose up -d --build --wait --wait-timeout 120
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
   }
