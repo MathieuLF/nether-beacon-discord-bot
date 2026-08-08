@@ -20,6 +20,9 @@ Nom du stack: `NeatherBeacon`
 - dossier d exploitation unique: `C:\Projects\nether-beacon`
 - volume persistant musique: `example-muse-data:/data`
 - volume runtime local: `C:\Projects\nether-beacon\runtime:/bot/runtime`
+- depot de production: `/srv/example/discord-bot/app`
+- coffre de production DockPanel: `nether-beacon-production`
+- lanceur de production root-only: `/usr/local/sbin/nether-beacon-deploy`
 
 ## Fonctions Et Possibilites
 
@@ -65,6 +68,30 @@ Nom du stack: `NeatherBeacon`
   - `/resume-hier`
 - Muse auto-heberge avec persistance de donnees
 
+## Profils De Commandes
+
+Le profil de production est `BOT_PROFILE=minimal`. Il enregistre exactement:
+
+- `/status`: admin seulement
+- `/metrics-palworld`: public, cooldown global de quatre minutes
+- `/resume-hier`: public, cooldown par utilisateur et salon Palworld autorise
+
+Le profil `full` contient 17 commandes et ajoute temporairement:
+
+- admin: `/audit`, `/resync`, `/help`, `/welcome-preview`, `/stats-refresh`, `/diag`, `/cache-status`
+- admin/modo: `/announce-palworld`
+- public Pokédex: `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`
+
+Les commandes absentes du profil actif sont refusees par le runtime et ne sont pas enregistrees dans Discord. Ne pas passer la production en `full` pour tester Pokémon: utiliser le probe direct ci-dessous. Un changement de profil modifie aussi les intents Discord, la reconciliation automatique et les listeners membres/vocal/presence.
+
+Verification du catalogue:
+
+- `npm test`: noms exacts, profils, classification public/staff/admin, permissions Discord, cooldowns et garde-fous
+- `npm run verify:pokedex`: vrai appel PokéAPI des six commandes et des cinq autocompletions, sans connexion Discord
+- sur la VPS: `sudo docker exec nether-beacon npm run verify:pokedex`
+
+`/resync` modifie additivement la structure Discord et `/announce-palworld` publie un vrai message Discord/Palworld. Ces deux commandes ne font jamais partie d'un test automatique de production.
+
 ## Prerequis
 
 - Windows avec Docker Desktop installe
@@ -79,6 +106,57 @@ Nom du stack: `NeatherBeacon`
   - identifiants Basic Auth Palworld REST
 
 Note locale importante: sur cette machine, la CLI Docker est presente, mais le daemon Docker Desktop n etait pas lance lors de la preparation. Le `first start` commence donc par le lancement de Docker Desktop.
+
+## Production VPS Et DockPanel
+
+### Stockage Des Secrets
+
+- coffre: `nether-beacon-production`
+- proprietaire: compte administrateur DockPanel
+- valeurs chiffrees et masquees dans DockPanel
+- aucun `.env` persistant sous `/srv/example/discord-bot/app`
+- lanceur `/usr/local/sbin/nether-beacon-deploy` en `0700 root:root`
+- runtime `/srv/example/discord-bot/app/runtime` en `0700 root:root`
+
+DockPanel `2.85.0` injecte nativement les secrets vers les sites, mais pas vers les apps Compose. Le lanceur comble cette limite sans fichier temporaire: il cree une session locale de cinq minutes en memoire, lit uniquement le coffre proprietaire, transmet les valeurs au processus Compose, puis attend le healthcheck.
+
+Le compte root et les administrateurs Docker peuvent inspecter l'environnement d'un conteneur. Le coffre protege donc le stockage au repos et l'acces DockPanel; il ne remplace pas la frontiere de confiance root/Docker.
+
+### Deploiement
+
+1. Valider et pousser les changements depuis le poste local.
+2. Sur la VPS, mettre `/srv/example/discord-bot/app` a jour avec un fast-forward Git.
+3. Verifier le coffre sans redemarrer:
+   - `sudo /usr/local/sbin/nether-beacon-deploy --check`
+4. Deployer:
+   - `sudo /usr/local/sbin/nether-beacon-deploy`
+5. Controler:
+   - `sudo docker inspect --format '{{.State.Status}}|{{.State.Health.Status}}|{{.RestartCount}}' nether-beacon`
+   - `sudo docker stats --no-stream nether-beacon`
+   - `sudo docker logs --tail=200 nether-beacon`
+
+Ne jamais lancer `docker compose up` directement sur la VPS: la commande contournerait la source de configuration DockPanel. Ne jamais recreer un `.env` de production dans le depot.
+
+### Rotation D'un Secret
+
+1. Modifier la valeur dans le coffre DockPanel `nether-beacon-production`.
+2. Lancer `sudo /usr/local/sbin/nether-beacon-deploy --check`.
+3. Lancer `sudo /usr/local/sbin/nether-beacon-deploy`.
+4. Verifier `healthy`, `0` redemarrage et les logs.
+5. Revoquer l'ancienne valeur chez le fournisseur lorsque la nouvelle connexion est confirmee.
+
+Une modification du coffre ne redemarre pas automatiquement le conteneur sous DockPanel `2.85.0`.
+
+### Limites Runtime De Production
+
+- memoire: `512 MiB`
+- CPU: `1`
+- aucun port hote publie
+- `cap_drop: ALL`
+- `no-new-privileges:true`
+- `/tmp` en `tmpfs`
+- volume Muse persistant `example-muse-data`
+- profil de commandes `minimal`
 
 ## Creation Des 2 Bots Discord
 
@@ -122,6 +200,7 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
 4. Verifier la config:
    - `npm run validate:config`
    - `npm run test`
+   - `npm run verify:pokedex` pour valider les appels PokéAPI en direct
    - `npm run capture:ids`
    - `docker compose config` seulement en terminal local prive, car la commande affiche les secrets resolus depuis `.env`
 5. Construire et lancer:
@@ -198,6 +277,8 @@ Lors de l utilisation de `/resume-hier`, le bot sonde `/resume?jour=...` et `dat
 
 ## Update
 
+Cette section concerne le poste Windows local. Pour la VPS, utiliser exclusivement la procedure DockPanel ci-dessus.
+
 1. Lire les changements voulus dans le depot local.
 2. Ajuster `config/server-plan.json` si la structure geree change.
 3. Revalider:
@@ -218,7 +299,8 @@ Lors de l utilisation de `/resume-hier`, le bot sonde `/resume?jour=...` et `dat
 ## Tests Locaux
 
 - `npm run validate:config`: valide le schema et la coherence du plan serveur
-- `npm run test`: teste la capture des IDs et la detection de doublons probables
+- `npm run test`: teste aussi les 17 commandes, leurs profils, permissions, cooldowns et integrations isolees
+- `npm run verify:pokedex`: teste en direct les six commandes Pokédex et les cinq autocompletions
 - `npm run capture:ids`: lit Discord via REST et met a jour `runtime/managed-ids.json` sans modifier le serveur
 
 ## Reglages Optionnels
@@ -295,6 +377,14 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
   - verifier `BOT_PALWORLD_REST_API_URL`
   - verifier `BOT_PALWORLD_REST_API_USERNAME`
   - verifier que le mot de passe REST est configure localement
+- si une commande Pokédex echoue:
+  - confirmer que le profil Discord actif est `full`; en `minimal`, elle est volontairement absente
+  - lancer `npm run verify:pokedex` pour separer un probleme PokéAPI d'un probleme Discord
+  - verifier les droits d'ecriture de `runtime/pokedex-cache`
+- si le deploiement VPS ne voit pas une nouvelle valeur DockPanel:
+  - lancer `sudo /usr/local/sbin/nether-beacon-deploy --check`
+  - verifier que la valeur est dans `nether-beacon-production`
+  - redeployer explicitement; l'injection Compose n'est pas automatique
 
 ## Assets
 

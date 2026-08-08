@@ -6,7 +6,7 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-22.x-2f6f43?logo=nodedotjs&logoColor=white)](#)
 [![Docker Desktop](https://img.shields.io/badge/Docker%20Desktop-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
-[![discord.js](https://img.shields.io/badge/discord.js-14.26.4-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
+[![discord.js](https://img.shields.io/badge/discord.js-14.27.0-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-222?logo=githubpages&logoColor=white)](https://mathieulf.github.io/neather-beacon-discord-bot/)
@@ -49,6 +49,8 @@ This is a self-hosted side project for a private Discord server.
 
 `BOT_PROFILE=minimal` is the default runtime profile. It registers only `/status`, `/metrics-palworld` and `/resume-hier`, disables automatic server reconciliation, and does not subscribe to member, voice or presence events. Use `BOT_PROFILE=full` temporarily when the complete administration, Pokédex and Stats feature set is required.
 
+The production VPS stays on `minimal`. The complete 17-command catalog remains in the image and test suite, but disabled commands are not registered in Discord. Changing the profile is an explicit production operation, not a troubleshooting step.
+
 ### Admin-only
 
 - `/status` - Alpha, Bravo, runtime and cache status.
@@ -81,6 +83,14 @@ Use English Pokémon names.
 - `/random-pokemon`
 
 Pokédex JSON and artwork are cached under `runtime/pokedex-cache`.
+
+Validate the complete Pokédex path without registering the commands in Discord:
+
+```bash
+npm run verify:pokedex
+```
+
+This calls PokéAPI for the six command formatters and the five autocomplete paths. It does not connect a Discord bot account.
 
 ## Palworld public data and admin REST
 
@@ -131,6 +141,8 @@ When `/resume-hier` is used, the bot checks `/resume?jour=...` and `data/public-
 │   └── pokedex.js            # cached PokéAPI integration
 ├── scripts/
 │   ├── capture-managed-ids.js
+│   ├── deploy-from-dockpanel.py # root-only VPS deploy helper
+│   ├── verify-pokedex-live.js   # live PokéAPI command probe
 │   └── rebuild-restart.ps1   # Discord orange notice + rebuild
 ├── docs/
 │   ├── site/
@@ -160,6 +172,19 @@ npm run capture:ids
 ```
 
 For the first ever launch, `docker compose up -d --build` is also valid if Alpha is not running yet and cannot post a restart notice.
+
+## Production VPS and DockPanel
+
+Production secrets and runtime configuration live in the owner-scoped DockPanel vault `nether-beacon-production`. The VPS has no persistent project `.env` file. The root-only deploy helper pulls the vault over DockPanel's local API, passes the values to Compose through process memory, rebuilds the image, recreates the container and waits for a healthy result:
+
+```bash
+sudo /usr/local/sbin/nether-beacon-deploy --check
+sudo /usr/local/sbin/nether-beacon-deploy
+```
+
+Do not run `docker compose up` directly on the VPS: it would bypass the vault-backed environment. After changing a value in DockPanel, run the helper explicitly; DockPanel 2.85 does not auto-inject vault updates into Compose apps.
+
+The vault is encrypted at rest and scoped to its DockPanel owner. At runtime, root and Docker administrators can still inspect container environment variables, which is an expected Docker trust boundary.
 
 ## Runtime storage
 
@@ -209,6 +234,7 @@ Before publishing:
 
 - review `.env.example` for placeholder-only values;
 - keep `.env`, `runtime/`, `muse-data/` and Docker volumes private;
+- keep production values in the DockPanel vault and deploy only through the root helper;
 - review the MIT license holder line in `LICENSE`;
 - review trademark and non-affiliation notices in `NOTICE.md`;
 - enable GitHub Pages from the `docs/` folder and keep the site entrypoint in `docs/site/`.
@@ -234,4 +260,4 @@ See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
 
 ## Security note
 
-Never commit Discord bot tokens, YouTube API keys, Spotify secrets, runtime state or Muse data. This repository is prepared for public release, but the live `.env` and generated runtime folders must remain local/private.
+Never commit Discord bot tokens, YouTube API keys, Spotify secrets, runtime state or Muse data. Local development may use an ignored `.env`; production uses the owner-scoped DockPanel vault and has no persistent project `.env`.

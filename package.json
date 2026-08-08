@@ -10,6 +10,7 @@
     "start:supervisor": "node supervisor.js",
     "healthcheck": "node healthcheck.js",
     "validate:config": "node scripts/validate-config.js",
+    "verify:pokedex": "node scripts/verify-pokedex-live.js",
     "capture:ids": "node scripts/capture-managed-ids.js",
     "test": "node --test"
   },

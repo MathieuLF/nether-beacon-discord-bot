@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { PermissionFlagsBits } = require('discord.js');
 const {
+  ADMIN_COMMAND_NAMES,
   POKEDEX_COMMAND_NAMES,
   PUBLIC_COMMAND_NAMES,
   STAFF_COMMAND_NAMES,
@@ -11,6 +12,26 @@ const {
   commandPayloadHash,
   summarizeCommandDiff,
 } = require('../lib/commands');
+
+const FULL_COMMAND_NAMES = [
+  'status',
+  'audit',
+  'resync',
+  'help',
+  'welcome-preview',
+  'stats-refresh',
+  'diag',
+  'cache-status',
+  'announce-palworld',
+  'pokemon',
+  'weakness',
+  'move',
+  'ability',
+  'type',
+  'random-pokemon',
+  'metrics-palworld',
+  'resume-hier',
+];
 
 test('command hash is stable and command diff reports missing and extra names', () => {
   assert.equal(commandPayloadHash(commandPayload), commandHash);
@@ -30,6 +51,29 @@ test('minimal profile exposes only the three approved commands', () => {
   );
   assert.equal(commandPayloadForProfile('full'), commandPayload);
   assert.throws(() => commandPayloadForProfile('unknown'), /Unknown bot profile/);
+});
+
+test('full profile has an exact, non-overlapping access classification', () => {
+  assert.deepEqual(commandPayload.map((command) => command.name), FULL_COMMAND_NAMES);
+  assert.ok(commandPayload.every((command) => command.dm_permission === false));
+
+  const classified = [
+    ...ADMIN_COMMAND_NAMES,
+    ...STAFF_COMMAND_NAMES,
+    ...PUBLIC_COMMAND_NAMES,
+  ];
+  assert.equal(new Set(classified).size, FULL_COMMAND_NAMES.length);
+  assert.deepEqual(new Set(classified), new Set(FULL_COMMAND_NAMES));
+
+  for (const command of commandPayload) {
+    if (ADMIN_COMMAND_NAMES.has(command.name)) {
+      assert.equal(command.default_member_permissions, String(PermissionFlagsBits.Administrator));
+    } else if (STAFF_COMMAND_NAMES.has(command.name)) {
+      assert.equal(command.default_member_permissions, String(PermissionFlagsBits.ManageMessages));
+    } else {
+      assert.equal(command.default_member_permissions, undefined);
+    }
+  }
 });
 
 test('Pokédex slash command options expose autocomplete', () => {
