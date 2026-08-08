@@ -498,7 +498,7 @@ const assignDefaultMemberRole = async (member) => {
   const role = matches.first();
   if (member.roles.cache.has(role.id)) return;
 
-  await member.roles.add(role, "NeatherBeacon: rôle par défaut pour un nouveau membre").catch(async (error) => {
+  await member.roles.add(role, "NetherBeacon: rôle par défaut pour un nouveau membre").catch(async (error) => {
     await sendLog(member.guild, formatBotMessage("⚠️ Rôle d'arrivée impossible", [
       formatLine('Membre', formatMember(member)),
       formatLine('Erreur', error.message),
@@ -558,7 +558,7 @@ const ensureStatsCategoryLast = async (guild, category) => {
         position: index,
       })),
     ),
-    'NeatherBeacon: move stats category last',
+    'NetherBeacon: move stats category last',
   );
 };
 
@@ -589,17 +589,17 @@ const ensureStatsCategory = async (guild) => {
         type: ChannelType.GuildCategory,
         permissionOverwrites: getStatsPermissionOverwrites(guild),
       }),
-      'NeatherBeacon: create stats category',
+      'NetherBeacon: create stats category',
     );
   } else {
     if (category.name !== STATS_CATEGORY_NAME) {
       category = await tryDiscordWrite(
-        category.edit({ name: STATS_CATEGORY_NAME }, 'NeatherBeacon: rename legacy stats category'),
-        'NeatherBeacon: rename stats category',
+        category.edit({ name: STATS_CATEGORY_NAME }, 'NetherBeacon: rename legacy stats category'),
+        'NetherBeacon: rename stats category',
       ) || category;
     }
 
-    await ensureManagedStatsOverwrites(category, guild, 'NeatherBeacon: lock managed stats category');
+    await ensureManagedStatsOverwrites(category, guild, 'NetherBeacon: lock managed stats category');
   }
 
   if (!category) {
@@ -619,8 +619,8 @@ const removeLegacyStatsTimeChannels = async (category) => {
 
   for (const channel of legacyChannels) {
     await tryDiscordWrite(
-      channel.delete('NeatherBeacon: remove obsolete time stats channel'),
-      `NeatherBeacon: remove obsolete stats time channel ${channel.id}`,
+      channel.delete('NetherBeacon: remove obsolete time stats channel'),
+      `NetherBeacon: remove obsolete stats time channel ${channel.id}`,
     );
   }
 };
@@ -634,8 +634,8 @@ const removeStatsLiveChannels = async (category) => {
 
   for (const channel of liveChannels) {
     await tryDiscordWrite(
-      channel.delete('NeatherBeacon: remove obsolete text stats channel'),
-      `NeatherBeacon: remove obsolete text stats channel ${channel.id}`,
+      channel.delete('NetherBeacon: remove obsolete text stats channel'),
+      `NetherBeacon: remove obsolete text stats channel ${channel.id}`,
     );
   }
 };
@@ -666,7 +666,7 @@ const ensureManagedStatsVoiceChannel = async (guild, category, prefix, name) => 
         parent: category.id,
         permissionOverwrites: getStatsPermissionOverwrites(guild),
       }),
-      `NeatherBeacon: create stats channel ${prefix}`,
+      `NetherBeacon: create stats channel ${prefix}`,
     );
     return channel;
   }
@@ -682,12 +682,12 @@ const ensureManagedStatsVoiceChannel = async (guild, category, prefix, name) => 
 
   if (Object.keys(updates).length) {
     channel = await tryDiscordWrite(
-      channel.edit(updates, 'NeatherBeacon: refresh managed stats channel'),
-      `NeatherBeacon: refresh stats channel ${prefix}`,
+      channel.edit(updates, 'NetherBeacon: refresh managed stats channel'),
+      `NetherBeacon: refresh stats channel ${prefix}`,
     ) || channel;
   }
 
-  await ensureManagedStatsOverwrites(channel, guild, 'NeatherBeacon: lock managed stats channel');
+  await ensureManagedStatsOverwrites(channel, guild, 'NetherBeacon: lock managed stats channel');
 
   return channel;
 };
@@ -788,7 +788,7 @@ const refreshStatsDisplay = async (guild, origin) => {
       for (const [index, channel] of channels.entries()) {
         await tryDiscordWrite(
           channel.setPosition(index),
-          `NeatherBeacon: position stats channel ${channel.name}`,
+          `NetherBeacon: position stats channel ${channel.name}`,
         );
       }
     }
@@ -876,7 +876,7 @@ const summarizeStatus = (guild) => {
   const museState = supervisor?.children?.muse;
   const adminState = supervisor?.children?.admin;
   return [
-    '**🛰️ NeatherBeacon Alpha en bref**',
+    '**🛰️ NetherBeacon Alpha en bref**',
     '',
     '**État général**',
     formatLine('Version', state.version),
@@ -1154,7 +1154,7 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
 };
 
 const helpText = [
-  '**🧭 Aide rapide - NeatherBeacon**',
+  '**🧭 Aide rapide - NetherBeacon**',
   '',
   'Alpha gère le serveur, les logs et les stats. Bravo s’occupe de la musique via Muse.',
   '',
@@ -1186,7 +1186,7 @@ const helpText = [
 
 const buildStartupLogMessage = (startupReport) =>
   [
-    '**🟢 NeatherBeacon Alpha est en ligne**',
+    '**🟢 NetherBeacon Alpha est en ligne**',
     '',
     'Alpha est revenu en ligne. J’ai relu la structure du serveur sans toucher à l’existant.',
     '',

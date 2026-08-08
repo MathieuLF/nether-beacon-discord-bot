@@ -36,7 +36,7 @@ function Send-DiscordLogMessage {
   $uri = "https://discord.com/api/v10/channels/$ChannelId/messages"
   $headers = @{
     Authorization = "Bot $Token"
-    'User-Agent' = 'NeatherBeacon restart script'
+    'User-Agent' = 'NetherBeacon restart script'
   }
   $body = @{
     content = $Content
@@ -92,7 +92,7 @@ if (Test-Path -LiteralPath $adminStatePath) {
 
 $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
 $message = @"
-**🟠 NeatherBeacon Alpha redémarre**
+**🟠 NetherBeacon Alpha redémarre**
 
 Une mise à jour est en cours. Alpha et Bravo peuvent disparaître quelques secondes.
 

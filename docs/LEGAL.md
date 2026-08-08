@@ -2,11 +2,11 @@
 
 This document is a practical publication note, not legal advice.
 
-NeatherBeacon is a self-hosted side project for a private Discord server.
+NetherBeacon is a self-hosted side project for a private Discord server.
 
 ## License
 
-NeatherBeacon is distributed under the MIT License.
+NetherBeacon is distributed under the MIT License.
 
 See:
 
@@ -15,7 +15,7 @@ See:
 
 ## Non-affiliation
 
-NeatherBeacon is an independent project. It has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI, or any other third-party brand mentioned in the project.
+NetherBeacon is an independent project. It has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI, or any other third-party brand mentioned in the project.
 
 ## Trademarks and brands
 
@@ -41,7 +41,7 @@ That folder is ignored and must not be published unless the publisher has separa
 
 Palworld features use the server owner's private Palworld REST API configuration.
 
-NeatherBeacon does not own Palworld, Palworld names, game data, server APIs, logos, or related intellectual property.
+NetherBeacon does not own Palworld, Palworld names, game data, server APIs, logos, or related intellectual property.
 
 The bot must not expose the Palworld REST API directly to the public Internet.
 

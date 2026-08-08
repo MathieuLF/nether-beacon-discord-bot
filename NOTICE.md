@@ -4,7 +4,7 @@ This project is released under the MIT License. See [LICENSE](LICENSE).
 
 ## No affiliation
 
-NeatherBeacon is an independent community project.
+NetherBeacon is an independent community project.
 
 It is a self-hosted side project, not an official integration.
 
@@ -35,7 +35,7 @@ Discord, Docker, GitHub, Node.js, YouTube, Spotify, Muse, PokéAPI, Palworld, an
 
 ## PokéAPI and Pokémon assets
 
-NeatherBeacon can request public Pokémon data and artwork at runtime through PokéAPI.
+NetherBeacon can request public Pokémon data and artwork at runtime through PokéAPI.
 
 - Pokémon data and artwork are not authored by this project.
 - Pokémon artwork is cached locally at runtime only.

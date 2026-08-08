@@ -7,8 +7,8 @@ Les visuels du projet sont ranges dans `C:\Projects\nether-beacon\assets`.
 - `Banner-Server_Gaymers.png`: banniere serveur
 - `Icône-Server_G.png`: icone serveur courte
 - `Icône-Server_Gaymers.png`: icone serveur complete
-- `Icône-Bot_NeatherBeacon (Alpha).png`: avatar du bot admin Alpha
-- `Icône-Bot_NeatherBeacon (Bravo).png`: avatar du bot musique Bravo
+- `Icône-Bot_NetherBeacon (Alpha).png`: avatar du bot admin Alpha
+- `Icône-Bot_NetherBeacon (Bravo).png`: avatar du bot musique Bravo
 - `Icône-Rôle_Alpha.png`: reference visuelle pour Alpha
 - `Icône-Rôle_Bravo.png`: reference visuelle pour Bravo
 - `Icône-Rôle_Noob Spawn.png`: reference visuelle pour Noob Spawn

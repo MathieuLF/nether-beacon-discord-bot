@@ -8,7 +8,7 @@ Ce projet fournit une pile Docker Desktop exploitable en continu pour:
 - un bot Muse dedie a la musique
 - un seul conteneur et un seul service Docker Compose
 
-Nom du stack: `NeatherBeacon`
+Nom du stack: `NetherBeacon`
 
 ## Architecture
 
@@ -18,7 +18,7 @@ Nom du stack: `NeatherBeacon`
 - healthcheck local: `healthcheck.js`
 - config declarative serveur: `config/server-plan.json`
 - dossier d exploitation unique: `C:\Projects\nether-beacon`
-- volume persistant musique: `example-muse-data:/data`
+- volume persistant musique: `example-muse-data:/data` (nom historique conserve pour ne pas detacher les donnees existantes)
 - volume runtime local: `C:\Projects\nether-beacon\runtime:/bot/runtime`
 - depot de production: `/srv/example/discord-bot/app`
 - coffre de production DockPanel: `nether-beacon-production`

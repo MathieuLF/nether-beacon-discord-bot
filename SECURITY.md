@@ -2,7 +2,7 @@
 
 ## Supported deployment
 
-NeatherBeacon is designed for a local Docker Desktop deployment controlled by the server owner.
+NetherBeacon is designed for a local Docker Desktop deployment controlled by the server owner.
 
 ## Secrets
 

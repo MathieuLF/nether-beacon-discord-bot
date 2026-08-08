@@ -1,8 +1,8 @@
-# NeatherBeacon
+# NetherBeacon
 
 > A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, Palworld commands, and public Pokédex commands.
 
-<!-- Public repository slug: MathieuLF/neather-beacon-discord-bot -->
+<!-- Public repository slug: MathieuLF/nether-beacon-discord-bot -->
 
 [![Node.js](https://img.shields.io/badge/Node.js-22.x-2f6f43?logo=nodedotjs&logoColor=white)](#)
 [![Docker Desktop](https://img.shields.io/badge/Docker%20Desktop-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
@@ -16,10 +16,10 @@ Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
 
 ## What it does
 
-NeatherBeacon runs a single Docker container with two Discord bot accounts:
+NetherBeacon runs a single Docker container with two Discord bot accounts:
 
-- **NeatherBeacon - Alpha**: server audit, additive resync, logs, stats, Palworld commands, public Pokédex commands.
-- **NeatherBeacon - Bravo**: music playback through upstream Muse.
+- **NetherBeacon - Alpha**: server audit, additive resync, logs, stats, Palworld commands, public Pokédex commands.
+- **NetherBeacon - Bravo**: music playback through upstream Muse.
 
 The project is designed to be **safe by default**:
 
@@ -197,7 +197,7 @@ Ignored from Git:
 
 Persistent Docker volume:
 
-- `example-muse-data` mounted at `/data`
+- `example-muse-data` mounted at `/data` (legacy compatibility name retained to preserve the existing Muse data)
 
 Recreatable runtime caches:
 
@@ -252,9 +252,9 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 
 ## License, notices and trademarks
 
-NeatherBeacon is released under the MIT License. See [LICENSE](LICENSE).
+NetherBeacon is released under the MIT License. See [LICENSE](LICENSE).
 
-Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NeatherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
+Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NetherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
 
 See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
 
