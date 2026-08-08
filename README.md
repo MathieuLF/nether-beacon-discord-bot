@@ -9,7 +9,7 @@
 [![discord.js](https://img.shields.io/badge/discord.js-14.27.0-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
 [![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
 [![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
-[![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-live-222?logo=githubpages&logoColor=white)](https://mathieulf.github.io/neather-beacon-discord-bot/)
+[![Website](https://img.shields.io/badge/Website-live-222?logo=googlechrome&logoColor=white)](https://beacon.nethercore.dev/)
 [![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/2ghwj8B7Vd)
 
 Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
@@ -146,7 +146,7 @@ When `/resume-hier` is used, the bot checks `/resume?jour=...` and `data/public-
 │   └── rebuild-restart.ps1   # Discord orange notice + rebuild
 ├── docs/
 │   ├── site/
-│   │   ├── index.html        # GitHub Pages microsite
+│   │   ├── index.html        # Nethercore microsite entrypoint
 │   │   └── assets/           # Microsite styles/scripts
 │   ├── OPERATIONS.md
 │   ├── PUBLICATION.md
@@ -237,7 +237,7 @@ Before publishing:
 - keep production values in the DockPanel vault and deploy only through the root helper;
 - review the MIT license holder line in `LICENSE`;
 - review trademark and non-affiliation notices in `NOTICE.md`;
-- enable GitHub Pages from the `docs/` folder and keep the site entrypoint in `docs/site/`.
+- keep `docs/site/index.html` as the microsite entrypoint; pushes to `main` publish it to `https://beacon.nethercore.dev/` through DockPanel Git Deploy.
 
 Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 
@@ -247,7 +247,7 @@ Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
 - [Publication checklist](docs/PUBLICATION.md)
 - [Legal notes](docs/LEGAL.md)
 - [Assets](docs/ASSETS.md)
-- [Live site](https://mathieulf.github.io/neather-beacon-discord-bot/)
+- [Live site](https://beacon.nethercore.dev/)
 - [Microsite source](docs/site/index.html)
 
 ## License, notices and trademarks

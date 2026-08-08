@@ -31,7 +31,7 @@ This repository is being prepared for a public GitHub release, but the live depl
 - documentation
 - `LICENSE`
 - `NOTICE.md`
-- static GitHub Pages files under `docs/site/`
+- static microsite files under `docs/site/`
 - public-facing images in `assets/` after manual review
 
 ## Legal review before public launch
@@ -53,19 +53,20 @@ The README includes a Tokei badge with a placeholder:
 
 After the public repository exists, replace `OWNER/REPO` with the final GitHub path.
 
-## GitHub Pages setup
+## Nethercore microsite deployment
 
-Recommended settings:
+The public microsite is available at:
 
-- Source: `Deploy from a branch`
-- Branch: `main`
-- Folder: `/docs`
+- `https://beacon.nethercore.dev/`
 
-The microsite entry point is:
+Its deployment source and entry point are:
 
-- `docs/site/index.html`
+- branch: `main`
+- source: `docs/site/`
+- entry point: `docs/site/index.html`
+- deploy script: `.dockpanel/deploy.sh`
 
-The file `docs/.nojekyll` is included so GitHub Pages serves static files directly.
+A push to `main` triggers the DockPanel Git Deploy webhook, which publishes the contents of `docs/site/` atomically.
 
 ## Pre-publication local checks
 

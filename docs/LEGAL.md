@@ -53,7 +53,7 @@ Safe to publish:
 - documentation
 - `.env.example`
 - schema/config templates
-- static GitHub Pages site
+- static public microsite source
 
 Do not publish:
 
