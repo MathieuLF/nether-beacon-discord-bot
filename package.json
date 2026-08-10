@@ -7,7 +7,6 @@
   "description": "Discord admin and music stack for Docker Desktop",
   "scripts": {
     "start": "node bot.js",
-    "start:supervisor": "node supervisor.js",
     "healthcheck": "node healthcheck.js",
     "validate:config": "node scripts/validate-config.js",
     "verify:pokedex": "node scripts/verify-pokedex-live.js",

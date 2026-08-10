@@ -16,16 +16,17 @@ Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
 
 ## What it does
 
-NetherBeacon runs a single Docker container with two Discord bot accounts:
+NetherBeacon runs two isolated Docker Compose services with two Discord bot accounts:
 
-- **NetherBeacon - Alpha**: server audit, additive resync, logs, stats, Palworld commands, public Pokédex commands.
-- **NetherBeacon - Bravo**: music playback through upstream Muse.
+- **NetherBeacon - Alpha**: server audit, strict managed-permission resync, logs, stats, Palworld commands, public Pokédex commands.
+- **NetherBeacon - Bravo**: music playback through upstream Muse, with only Muse credentials and its persistent data volume.
 
 The project is designed to be **safe by default**:
 
 - no destructive deletion of existing Discord roles or channels;
 - Discord resources are reused by ID when known;
 - ambiguous duplicates are reported instead of guessed;
+- permissions and overwrites on managed roles/channels converge exactly to the declared plan;
 - runtime state and secrets are kept out of Git.
 
 This is a self-hosted side project for a private Discord server.
@@ -34,11 +35,11 @@ This is a self-hosted side project for a private Discord server.
 
 | Area | Features |
 | --- | --- |
-| Server management | `/audit`, `/resync`, managed roles/channels/categories, ID registry |
+| Server management | `/audit`, `/resync`, managed roles/channels/categories, stable-ID registry, strict managed permissions |
 | Logs | admin logs, public arrivals/departures, voice join/leave/move tracking |
 | Stats | locked public voice channels updated every 5 minutes, with event debounce |
 | Community channels | dedicated public spaces for Palworld and Pokémon GO conversations |
-| Music | Muse in the same container, persistent Docker volume |
+| Music | Isolated Muse service, persistent Docker volume |
 | Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
 | Palworld | Public `/metrics-palworld` from filtered Gaylemon JSON and staff `/announce-palworld` relayed in game |
 | Gaylemon daily recap | Recap available on the Gaylemon site and on demand with `/resume-hier`; no automatic Discord post |
@@ -49,13 +50,13 @@ This is a self-hosted side project for a private Discord server.
 
 `BOT_PROFILE=minimal` is the safe default. `BOT_PROFILE=pokemon` adds the six public Pokédex commands while keeping automatic server reconciliation, member events, voice events and presence events disabled. Use `BOT_PROFILE=full` only when the complete administration and Stats feature set is required.
 
-The production VPS runs `full`, exposing the complete 17-command catalog and enabling additive reconciliation, Stats, member events, voice events and presence events. Use `pokemon` when the public Pokédex must remain available without those administration and event features. Changing the profile is an explicit production operation, not a troubleshooting step.
+The production VPS runs `full`, exposing the complete 17-command catalog and enabling managed reconciliation, Stats, member events, voice events and presence events. Reconciliation creates missing resources without deleting roles or channels, but managed role permissions and channel overwrites are strict. Use `pokemon` when the public Pokédex must remain available without those administration and event features. Changing the profile is an explicit production operation, not a troubleshooting step.
 
 ### Admin-only
 
 - `/status` - Alpha, Bravo, runtime and cache status.
 - `/audit` - compare the desired Discord structure with the current server.
-- `/resync` - apply additive managed changes.
+- `/resync` - create missing managed resources and enforce their declared permissions.
 - `/help` - compact help.
 - `/welcome-preview` - preview the welcome message.
 - `/stats-refresh` - force Stats voice channels to refresh now.
@@ -82,7 +83,7 @@ Use English Pokémon names.
 - `/type name:fire`
 - `/random-pokemon`
 
-Pokédex JSON and artwork are cached under `runtime/pokedex-cache`.
+Pokédex JSON and artwork are cached under `runtime/pokedex-cache` with bounded memory, disk, file-count and concurrent-request budgets. Artwork is accepted only from the approved PokéAPI sprite host after public-address, path and image validation.
 
 Validate the complete Pokédex path without registering the commands in Discord:
 
@@ -126,15 +127,16 @@ When `/resume-hier` is used, the bot checks `/resume?jour=...` and `data/public-
 ```text
 .
 ├── bot.js                    # Alpha admin/public command bot
-├── supervisor.js             # runs Alpha and Muse together
-├── healthcheck.js            # local container healthcheck
-├── docker-compose.yml        # one service, one container
+├── muse-runner.js            # isolated Muse child and heartbeat
+├── healthcheck.js            # Alpha healthcheck
+├── muse-healthcheck.js       # Muse healthcheck
+├── docker-compose.yml        # isolated Alpha and Muse services
 ├── Dockerfile
 ├── config/
 │   ├── server-plan.json      # desired Discord structure
 │   └── server-plan.schema.json
 ├── lib/
-│   ├── reconcile.js          # additive Discord reconciliation
+│   ├── reconcile.js          # stable-ID reconciliation and strict managed ACLs
 │   ├── managed-ids.js        # runtime ID registry support
 │   ├── palworld-public.js    # filtered Gaylemon public JSON reader
 │   ├── palworld-rest.js      # staff-only Palworld admin REST announcements
@@ -175,7 +177,7 @@ For the first ever launch, `docker compose up -d --build` is also valid if Alpha
 
 ## Production VPS and DockPanel
 
-Production secrets and runtime configuration live in the owner-scoped DockPanel vault `nether-beacon-production`. The VPS has no persistent project `.env` file. The root-only deploy helper pulls the vault over DockPanel's local API, passes the values to Compose through process memory, rebuilds the image, recreates the container and waits for a healthy result:
+Production secrets and runtime configuration live in the owner-scoped DockPanel vault `nether-beacon-production`. The VPS has no persistent project `.env` file. The root-only deploy helper pulls the vault over DockPanel's local API, rejects keys outside its static application allowlist, passes the values to Compose through a minimal process environment, pins the local Docker socket and `/usr/bin/docker`, rebuilds both services and waits for both healthchecks:
 
 ```bash
 sudo /usr/local/sbin/nether-beacon-deploy --check
@@ -205,6 +207,10 @@ Recreatable runtime caches:
 - `runtime/admin-state.json`
 - `runtime/managed-ids.json`
 
+Internal Compose state:
+
+- `peer-state` carries only Muse heartbeat metadata to Alpha as a read-only mount; it contains no credentials.
+
 ## Optional runtime tuning
 
 Defaults are documented in `.env.example`:
@@ -213,6 +219,11 @@ Defaults are documented in `.env.example`:
 - `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000` limits Stats voice-channel renames.
 - `BOT_POKEAPI_CACHE_TTL_DAYS=30` controls JSON cache age.
 - `BOT_POKEAPI_MAX_ASSET_BYTES=5242880` rejects oversized Pokédex artwork downloads.
+- `BOT_POKEAPI_MAX_JSON_BYTES=1048576` caps each PokéAPI JSON response.
+- `BOT_POKEAPI_MAX_MEMORY_ENTRIES=64` bounds the in-process LRU cache.
+- `BOT_POKEAPI_MAX_CACHE_BYTES=268435456` and `BOT_POKEAPI_MAX_CACHE_FILES=512` bound persistent cache growth with oldest-first eviction.
+- `BOT_POKEAPI_MAX_CONCURRENT_REQUESTS=4` limits distinct upstream requests in flight.
+- `BOT_POKEAPI_GLOBAL_COOLDOWN_MS=1000` limits public Pokédex command throughput across the guild.
 - `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld public metrics and Discord announcements are posted.
 - `BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS=5000` limits Gaylemon public JSON reads.
 - `BOT_PALWORLD_PUBLIC_CACHE_TTL_MS=15000` caches public status/player JSON briefly.
@@ -226,6 +237,7 @@ Defaults are documented in `.env.example`:
 - `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro` controls the recap microsite base URL.
 - `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary used by `/resume-hier`.
 - `GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS=5000` limits the availability check made by `/resume-hier`.
+- `GAYLEMON_DAILY_SUMMARY_MAX_JSON_BYTES=262144` bounds the recap index while the same total request deadline remains active.
 - `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES=🐾・palworld` controls where `/resume-hier` can be used. Prefer `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS` if names ever become ambiguous.
 
 ## Public GitHub readiness

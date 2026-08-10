@@ -5,6 +5,7 @@ const {
   createDailySummarySettings,
   getPreviousLocalDateKey,
   getSummaryUrl,
+  inspectSummaryAvailability,
 } = require('../lib/daily-summary');
 
 test('manual daily summary defaults to Palworld and the previous Toronto day', () => {
@@ -59,4 +60,36 @@ test('daily summary message keeps the link in plain text without buttons or redu
   assert.match(embed.description, /https:\/\/gaylemon\.mathieu\.pro\/resume\?jour=2026-07-16/);
   assert.doesNotMatch(embed.description, /sont réunis au même endroit/);
   assert.doesNotMatch(embed.description, /mise à jour/);
+});
+
+test('daily summary timeout remains active while the index body is consumed', async () => {
+  const settings = {
+    ...createDailySummarySettings({ BOT_PALWORLD_CHANNEL_NAME: '🐾・palworld' }),
+    fetchTimeoutMs: 20,
+    maxJsonBytes: 1024,
+  };
+  const fetchImpl = async (url, { signal }) => {
+    if (url.includes('public-events-index')) {
+      const body = new ReadableStream({
+        start(controller) {
+          signal.addEventListener('abort', () => {
+            const error = new Error('aborted');
+            error.name = 'AbortError';
+            controller.error(error);
+          }, { once: true });
+        },
+      });
+      return new Response(body, { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    return { ok: true, status: 200, headers: new Headers(), body: { cancel: async () => undefined } };
+  };
+
+  const result = await Promise.race([
+    inspectSummaryAvailability(settings, '2026-07-16', fetchImpl),
+    new Promise((resolve) => setTimeout(() => resolve('hung'), 100)),
+  ]);
+
+  assert.notEqual(result, 'hung');
+  assert.equal(result.ok, true);
+  assert.equal(result.indexOk, false);
 });

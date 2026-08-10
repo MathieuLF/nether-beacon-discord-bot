@@ -8,8 +8,9 @@ const {
   isChannelAllowed,
 } = require('../lib/access-control');
 
-const roleCache = (names) => ({
-  some: (predicate) => names.some((name) => predicate({ name })),
+const roleCache = (roles) => ({
+  has: (id) => roles.some((role) => role.id === id),
+  some: (predicate) => roles.some((role) => predicate(role)),
 });
 
 const interaction = ({ adminPermission = false, roles = [] } = {}) => ({
@@ -24,13 +25,13 @@ const interaction = ({ adminPermission = false, roles = [] } = {}) => ({
   },
 });
 
-test('staff Palworld permissions accept Administrator, Admin role or Mod role only', () => {
-  const settings = { adminRoleName: 'Admin', modRoleName: 'Mod' };
+test('staff Palworld permissions accept Administrator or managed Admin/Mod role IDs only', () => {
+  const settings = { adminRoleId: 'admin-id', modRoleId: 'mod-id' };
 
-  assert.equal(hasAdminAccess(interaction({ adminPermission: true }), 'Admin'), true);
-  assert.equal(hasStaffAccess(interaction({ roles: ['Admin'] }), settings), true);
-  assert.equal(hasStaffAccess(interaction({ roles: ['Mod'] }), settings), true);
-  assert.equal(hasStaffAccess(interaction({ roles: ['Noob Spawn'] }), settings), false);
+  assert.equal(hasAdminAccess(interaction({ adminPermission: true }), 'admin-id'), true);
+  assert.equal(hasStaffAccess(interaction({ roles: [{ id: 'admin-id', name: 'Admin' }] }), settings), true);
+  assert.equal(hasStaffAccess(interaction({ roles: [{ id: 'mod-id', name: 'Mod' }] }), settings), true);
+  assert.equal(hasStaffAccess(interaction({ roles: [{ id: 'rogue', name: 'Mod' }] }), settings), false);
 });
 
 test('cooldown reserves immediately and releases after duration', () => {

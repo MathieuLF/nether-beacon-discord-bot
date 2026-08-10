@@ -4,22 +4,23 @@
 
 Ce projet fournit une pile Docker Desktop exploitable en continu pour:
 
-- un bot admin Discord dedie a l audit, la resynchronisation additive et aux logs
+- un bot admin Discord dedie a l audit, la creation non destructive des ressources et la convergence stricte des permissions gerees
 - un bot Muse dedie a la musique
-- un seul conteneur et un seul service Docker Compose
+- deux services Docker Compose isoles par environnement de secrets
 
 Nom du stack: `NetherBeacon`
 
 ## Architecture
 
 - image base: `ghcr.io/museofficial/muse:2.11.5`
-- superviseur local: `supervisor.js`
 - bot admin: `bot.js`
-- healthcheck local: `healthcheck.js`
+- lanceur Muse isole: `muse-runner.js`
+- healthchecks separes: `healthcheck.js` et `muse-healthcheck.js`
 - config declarative serveur: `config/server-plan.json`
 - dossier d exploitation unique: `C:\Projects\nether-beacon`
 - volume persistant musique: `example-muse-data:/data` (nom historique conserve pour ne pas detacher les donnees existantes)
 - volume runtime local: `C:\Projects\nether-beacon\runtime:/bot/runtime`
+- volume d etat inter-service sans secret: `peer-state` (lecture seule dans Alpha)
 - depot de production: `/srv/example/discord-bot/app`
 - coffre de production DockPanel: `nether-beacon-production`
 - lanceur de production root-only: `/usr/local/sbin/nether-beacon-deploy`
@@ -27,10 +28,10 @@ Nom du stack: `NetherBeacon`
 ## Fonctions Et Possibilites
 
 - audit non destructif du serveur cible
-- creation additive des roles, categories et salons geres
-- correction des ressources gerees quand l intention est claire
+- creation non destructive des roles, categories et salons geres
+- convergence exacte des permissions des roles et des overwrites de salons geres
 - detection et signalement des conflits de nommage
-- registre runtime `runtime/managed-ids.json` pour retrouver les ressources gerees par ID avant de regarder les noms
+- registre runtime `runtime/managed-ids.json` obligatoire pour toute decision d autorisation; un ID perime ou un nom duplique bloque la reconciliation
 - anti-duplication renforcee: noms exacts, anciens noms et noms probablement equivalents sont detectes avant creation
 - protection contre l ajout silencieux de `Administrator` a un role `Admin` existant
 - categorie `Stats` dynamique, visible par tous, vocale, verrouillee, poussee en fin de liste, et rafraichie toutes les 5 minutes
@@ -46,7 +47,7 @@ Nom du stack: `NetherBeacon`
   - `/ability`
   - `/type`
   - `/random-pokemon`
-- `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite mis en cache, types, abilities, stats, species, labels, egg groups et evolution quand disponible
+- `/pokemon` et `/random-pokemon` retournent une fiche enrichie avec artwork/sprite valide et mis en cache sous quotas, types, abilities, stats, species, labels, egg groups et evolution quand disponible
 - commande publique `/metrics-palworld` via les JSON publics filtres Gaylemon, avec cooldown global de 4 minutes
 - commande staff `/announce-palworld` pour publier une annonce dans Discord et la relayer en jeu via `POST /announce`
 - aucune publication automatique du resume Gaylemon dans Discord; le recap reste disponible sur le site
@@ -75,13 +76,13 @@ Le profil de production est `BOT_PROFILE=full`. Il enregistre les 17 commandes:
 - `/status`: admin seulement
 - `/metrics-palworld`: public, cooldown global de quatre minutes
 - `/resume-hier`: public, cooldown par utilisateur et salon Palworld autorise
-- `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`: public, cooldown par utilisateur
+- `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`: public, cooldown par utilisateur, cooldown global et plafond de concurrence
 - `/audit`, `/resync`, `/help`, `/welcome-preview`, `/stats-refresh`, `/diag`, `/cache-status`: admin seulement
 - `/announce-palworld`: admin/modo, salon autorise et cooldown global
 
 Le profil `pokemon` conserve les neuf commandes publiques/admin ci-dessus sans les huit commandes d'administration et de staff. Le profil `minimal` retire aussi les six commandes Pokédex et conserve seulement `/status`, `/metrics-palworld` et `/resume-hier`.
 
-Le profil `full` active aussi la reconciliation additive au demarrage, les Stats et les listeners membres/vocal/presence. Les commandes absentes d'un profil reduit sont refusees par le runtime et ne sont pas enregistrees dans Discord.
+Le profil `full` active aussi la reconciliation geree au demarrage, les Stats et les listeners membres/vocal/presence. Les ressources manquantes sont creees sans supprimer de roles ou salons; les permissions des ressources gerees sont strictement ramenees au plan. Les commandes absentes d'un profil reduit sont refusees par le runtime et ne sont pas enregistrees dans Discord.
 
 Verification du catalogue:
 
@@ -89,7 +90,7 @@ Verification du catalogue:
 - `npm run verify:pokedex`: vrai appel PokéAPI des six commandes et des cinq autocompletions, sans connexion Discord
 - sur la VPS: `sudo docker exec nether-beacon npm run verify:pokedex`
 
-`/resync` modifie additivement la structure Discord et `/announce-palworld` publie un vrai message Discord/Palworld. Ces deux commandes ne font jamais partie d'un test automatique de production.
+`/resync` peut creer des ressources et retirer des permissions ou overwrites non declares sur les ressources gerees. `/announce-palworld` publie un vrai message Discord/Palworld. Ces deux commandes ne font jamais partie d'un test automatique de production.
 
 ## Prerequis
 
@@ -117,7 +118,7 @@ Note locale importante: sur cette machine, la CLI Docker est presente, mais le d
 - lanceur `/usr/local/sbin/nether-beacon-deploy` en `0700 root:root`
 - runtime `/srv/example/discord-bot/app/runtime` en `0700 root:root`
 
-DockPanel `2.85.0` injecte nativement les secrets vers les sites, mais pas vers les apps Compose. Le lanceur comble cette limite sans fichier temporaire: il cree une session locale de cinq minutes en memoire, lit uniquement le coffre proprietaire, transmet les valeurs au processus Compose, puis attend le healthcheck.
+DockPanel `2.85.0` injecte nativement les secrets vers les sites, mais pas vers les apps Compose. Le lanceur comble cette limite sans fichier temporaire: il cree une session locale de cinq minutes en memoire, lit uniquement le coffre proprietaire, refuse toute cle hors liste blanche, construit un environnement minimal, fixe le socket Docker local et `/usr/bin/docker`, puis attend les deux healthchecks.
 
 Le compte root et les administrateurs Docker peuvent inspecter l'environnement d'un conteneur. Le coffre protege donc le stockage au repos et l'acces DockPanel; il ne remplace pas la frontiere de confiance root/Docker.
 
@@ -130,9 +131,10 @@ Le compte root et les administrateurs Docker peuvent inspecter l'environnement d
 4. Deployer:
    - `sudo /usr/local/sbin/nether-beacon-deploy`
 5. Controler:
-   - `sudo docker inspect --format '{{.State.Status}}|{{.State.Health.Status}}|{{.RestartCount}}' nether-beacon`
-   - `sudo docker stats --no-stream nether-beacon`
+   - `sudo docker inspect --format '{{.State.Status}}|{{.State.Health.Status}}|{{.RestartCount}}' nether-beacon nether-beacon-muse`
+   - `sudo docker stats --no-stream nether-beacon nether-beacon-muse`
    - `sudo docker logs --tail=200 nether-beacon`
+   - `sudo docker logs --tail=200 nether-beacon-muse`
 
 Ne jamais lancer `docker compose up` directement sur la VPS: la commande contournerait la source de configuration DockPanel. Ne jamais recreer un `.env` de production dans le depot.
 
@@ -148,8 +150,8 @@ Une modification du coffre ne redemarre pas automatiquement le conteneur sous Do
 
 ### Limites Runtime De Production
 
-- memoire: `512 MiB`
-- CPU: `1`
+- memoire: `512 MiB` par service
+- CPU: `1` par service
 - aucun port hote publie
 - `cap_drop: ALL`
 - `no-new-privileges:true`
@@ -346,9 +348,9 @@ Le script envoie d abord un message orange dans le canal logs admin, puis lance 
 
 - verifier les logs Docker
 - verifier le volume Docker `example-muse-data`
-- verifier `C:\Projects\nether-beacon\runtime\admin-heartbeat.json` et `C:\Projects\nether-beacon\runtime\supervisor-state.json`
+- verifier `C:\Projects\nether-beacon\runtime\admin-heartbeat.json` et les deux healthchecks Compose
 - verifier `C:\Projects\nether-beacon\runtime\managed-ids.json` apres gros changement manuel de structure
-- `C:\Projects\nether-beacon\runtime\pokedex-cache` est un cache PokéAPI recréable pour les JSON, evolutions et images
+- `C:\Projects\nether-beacon\runtime\pokedex-cache` est un cache PokéAPI recreable, borne et evince par anciennete pour les JSON, evolutions et images
 - garder les tokens Discord valides
 - relancer `/audit` apres tout gros changement manuel du serveur
 

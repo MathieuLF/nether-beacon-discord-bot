@@ -2,7 +2,7 @@
 
 ## Supported deployment
 
-NetherBeacon is designed for a local Docker Desktop deployment controlled by the server owner.
+NetherBeacon is designed for an owner-controlled Docker Compose deployment. Alpha and Muse run as separate services with separate credential environments; neither service publishes an HTTP port.
 
 ## Secrets
 
@@ -17,6 +17,8 @@ Never publish:
 - Docker volume backups
 
 Use `.env.example` as the public template.
+
+The root-only DockPanel deploy helper accepts only the application keys declared in its static allowlist, pins the local Docker socket and invokes `/usr/bin/docker` through a minimal environment.
 
 ## Reporting
 

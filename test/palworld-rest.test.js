@@ -17,10 +17,7 @@ test('fetchPalworldMetrics calls the REST metrics endpoint with Basic auth', asy
     password: 'secret',
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
-      return {
-        ok: true,
-        status: 200,
-        text: async () => JSON.stringify({
+      return new Response(JSON.stringify({
           serverfps: 59.8,
           currentplayernum: 2,
           maxplayernum: 32,
@@ -28,8 +25,7 @@ test('fetchPalworldMetrics calls the REST metrics endpoint with Basic auth', asy
           uptime: 3661,
           basecampnum: 4,
           days: 12,
-        }),
-      };
+        }), { status: 200, headers: { 'content-type': 'application/json' } });
     },
   });
 
@@ -49,11 +45,7 @@ test('sendPalworldAnnouncement posts the normalized message to the announce endp
     message: '  Maintenance dans 5 minutes  ',
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
-      return {
-        ok: true,
-        status: 200,
-        text: async () => '{}',
-      };
+      return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
     },
   });
 
@@ -74,11 +66,7 @@ test('Palworld REST client retries one transient network error and does not retr
     fetchImpl: async (url) => {
       calls.push(url);
       if (calls.length === 1) throw transient;
-      return {
-        ok: true,
-        status: 200,
-        text: async () => '{}',
-      };
+      return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } });
     },
   });
 

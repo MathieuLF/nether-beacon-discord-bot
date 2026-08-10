@@ -30,9 +30,58 @@ API_ENV = Path("/etc/dockpanel/api.env")
 CONTROL_DB_CONTAINER = "dockpanel-postgres"
 DEFAULT_COMPOSE_FILE = Path("/srv/example/discord-bot/app/docker-compose.yml")
 DEFAULT_VAULT = "nether-beacon-production"
-CONTAINER_NAME = "nether-beacon"
+CONTAINER_NAMES = ("nether-beacon", "nether-beacon-muse")
+DOCKER_EXECUTABLE = "/usr/bin/docker"
+TRUSTED_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 REQUIRED_KEYS = {"DISCORD_GUILD_ID", "DISCORD_BOT_TOKEN", "MUSE_DISCORD_TOKEN"}
 ENV_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+ALLOWED_KEYS = frozenset(
+    {
+        "DISCORD_GUILD_ID",
+        "DISCORD_BOT_TOKEN",
+        "MUSE_DISCORD_TOKEN",
+        "MUSE_YOUTUBE_API_KEY",
+        "MUSE_SPOTIFY_CLIENT_ID",
+        "MUSE_SPOTIFY_CLIENT_SECRET",
+        "MUSE_CACHE_LIMIT",
+        "MUSE_YT_DLP_AUTO_UPDATE",
+        "MUSE_ENABLE_SPONSORBLOCK",
+        "MUSE_BOT_STATUS",
+        "MUSE_BOT_ACTIVITY_TYPE",
+        "MUSE_BOT_ACTIVITY",
+        "BOT_PROFILE",
+        "BOT_TIMEZONE",
+        "BOT_RUNTIME_DIR",
+        "BOT_STATS_EVENT_DEBOUNCE_MS",
+        "BOT_STATS_VOICE_REFRESH_INTERVAL_MS",
+        "BOT_POKEAPI_CACHE_TTL_DAYS",
+        "BOT_POKEAPI_MAX_ASSET_BYTES",
+        "BOT_POKEAPI_MAX_JSON_BYTES",
+        "BOT_POKEAPI_MAX_MEMORY_ENTRIES",
+        "BOT_POKEAPI_MAX_CACHE_BYTES",
+        "BOT_POKEAPI_MAX_CACHE_FILES",
+        "BOT_POKEAPI_MAX_CONCURRENT_REQUESTS",
+        "BOT_POKEAPI_GLOBAL_COOLDOWN_MS",
+        "BOT_PALWORLD_CHANNEL_NAME",
+        "BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS",
+        "BOT_PALWORLD_PUBLIC_CACHE_TTL_MS",
+        "BOT_PALWORLD_REST_API_URL",
+        "BOT_PALWORLD_REST_API_USERNAME",
+        "BOT_PALWORLD_REST_API_PASSWORD",
+        "BOT_PALWORLD_REST_FETCH_TIMEOUT_MS",
+        "BOT_PALWORLD_REST_CIRCUIT_BREAKER_MS",
+        "BOT_PALWORLD_METRICS_COOLDOWN_MS",
+        "BOT_PALWORLD_ADMIN_COOLDOWN_MS",
+        "BOT_PALWORLD_ADMIN_CHANNEL_IDS",
+        "BOT_PALWORLD_ADMIN_CHANNEL_NAMES",
+        "GAYLEMON_PUBLIC_BASE_URL",
+        "GAYLEMON_DAILY_SUMMARY_TIME_ZONE",
+        "GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS",
+        "GAYLEMON_DAILY_SUMMARY_MAX_JSON_BYTES",
+        "GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS",
+        "GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES",
+    }
+)
 
 
 class DeploymentError(RuntimeError):
@@ -63,10 +112,11 @@ def admin_identity() -> tuple[str, str]:
         'ORDER BY created_at LIMIT 2\"'
     )
     result = subprocess.run(
-        ["docker", "exec", CONTROL_DB_CONTAINER, "sh", "-lc", command],
+        [DOCKER_EXECUTABLE, "exec", CONTROL_DB_CONTAINER, "sh", "-lc", command],
         check=True,
         capture_output=True,
         text=True,
+        env=build_child_env({}),
     )
     rows = [line.split("|", 1) for line in result.stdout.splitlines() if line]
     if len(rows) != 1 or len(rows[0]) != 2:
@@ -129,6 +179,8 @@ def pull_vault(token: str, vault_name: str) -> dict[str, str]:
         value = entry.get("value")
         if not isinstance(key, str) or not ENV_KEY.fullmatch(key) or not isinstance(value, str):
             raise DeploymentError("DockPanel returned an invalid secret entry")
+        if key not in ALLOWED_KEYS:
+            raise DeploymentError(f"Unexpected secret key in vault: {key}")
         if key in values:
             raise DeploymentError(f"Duplicate secret key in vault: {key}")
         values[key] = value
@@ -139,40 +191,48 @@ def pull_vault(token: str, vault_name: str) -> dict[str, str]:
     return values
 
 
-def managed_keys(compose_file: Path) -> set[str]:
-    example = compose_file.parent / ".env.example"
-    keys: set[str] = set()
-    for line in example.read_text(encoding="utf-8").splitlines():
-        if "=" not in line:
-            continue
-        key = line.split("=", 1)[0].strip()
-        if ENV_KEY.fullmatch(key):
-            keys.add(key)
-    return keys
+def build_child_env(values: dict[str, str]) -> dict[str, str]:
+    unexpected = sorted(set(values) - ALLOWED_KEYS)
+    if unexpected:
+        raise DeploymentError(f"Unexpected environment keys: {', '.join(unexpected)}")
+    return {
+        "PATH": TRUSTED_PATH,
+        "HOME": "/root",
+        "LANG": "C.UTF-8",
+        "DOCKER_HOST": "unix:///var/run/docker.sock",
+        **values,
+    }
 
 
 def wait_until_healthy(timeout_seconds: int = 120) -> None:
     deadline = time.monotonic() + timeout_seconds
-    last_state = "unknown"
+    last_states = {name: "unknown" for name in CONTAINER_NAMES}
     while time.monotonic() < deadline:
-        result = subprocess.run(
-            [
-                "docker",
-                "inspect",
-                "--format",
-                "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}|{{.RestartCount}}",
-                CONTAINER_NAME,
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            last_state = result.stdout.strip()
-            status, health, restarts = last_state.split("|", 2)
-            if status == "running" and health in {"healthy", "none"} and restarts == "0":
-                return
+        all_healthy = True
+        for container_name in CONTAINER_NAMES:
+            result = subprocess.run(
+                [
+                    DOCKER_EXECUTABLE,
+                    "inspect",
+                    "--format",
+                    "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}|{{.RestartCount}}",
+                    container_name,
+                ],
+                capture_output=True,
+                text=True,
+                env=build_child_env({}),
+            )
+            if result.returncode != 0:
+                all_healthy = False
+                continue
+            last_states[container_name] = result.stdout.strip()
+            status, health, restarts = last_states[container_name].split("|", 2)
+            if status != "running" or health != "healthy" or restarts != "0":
+                all_healthy = False
+        if all_healthy:
+            return
         time.sleep(2)
-    raise DeploymentError(f"Container did not become healthy: {last_state}")
+    raise DeploymentError(f"Containers did not become healthy: {last_states}")
 
 
 def main() -> int:
@@ -194,18 +254,15 @@ def main() -> int:
     if args.check:
         return 0
 
-    child_env = os.environ.copy()
-    for key in managed_keys(compose_file):
-        child_env.pop(key, None)
-    child_env.update(values)
+    child_env = build_child_env(values)
     subprocess.run(
-        ["docker", "compose", "-f", str(compose_file), "up", "-d", "--build", "--force-recreate"],
+        [DOCKER_EXECUTABLE, "compose", "-f", str(compose_file), "up", "-d", "--build", "--force-recreate"],
         cwd=compose_file.parent,
         env=child_env,
         check=True,
     )
     wait_until_healthy()
-    print(f"{CONTAINER_NAME} is healthy")
+    print(f"{', '.join(CONTAINER_NAMES)} are healthy")
     return 0
 
 

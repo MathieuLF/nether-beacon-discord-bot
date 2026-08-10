@@ -102,7 +102,7 @@ Une mise à jour est en cours. Alpha et Bravo peuvent disparaître quelques seco
 **Déclenché**
 - $timestamp
 
-Le healthcheck Docker vérifiera le retour des deux bots.
+Les healthchecks Docker vérifieront séparément le retour des deux bots.
 "@
 
 if ($logChannelId) {
@@ -118,6 +118,7 @@ if ($logChannelId) {
 Push-Location -LiteralPath $projectRoot
 try {
   Remove-WrongOriginContainer -ContainerName 'nether-beacon' -ExpectedWorkingDir $projectRoot
+  Remove-WrongOriginContainer -ContainerName 'nether-beacon-muse' -ExpectedWorkingDir $projectRoot
   docker compose up -d --build --wait --wait-timeout 120
   if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE

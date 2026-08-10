@@ -6,10 +6,9 @@ const {
   normalizePublicMetrics,
 } = require('../lib/palworld-public');
 
-const jsonResponse = (payload) => ({
-  ok: true,
+const jsonResponse = (payload) => new Response(JSON.stringify(payload), {
   status: 200,
-  text: async () => JSON.stringify(payload),
+  headers: { 'content-type': 'application/json' },
 });
 
 test('public Palworld client reads filtered Gaylemon JSON and formats nominal status', async () => {

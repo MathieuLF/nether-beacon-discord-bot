@@ -37,7 +37,7 @@
             <div class="eyebrow">Self-hosted Discord stack</div>
             <h1>One beacon for gamers, music, stats and safe diagnostics.</h1>
             <p class="lede">
-              NetherBeacon keeps Alpha on server operations, public commands, Palworld REST commands, and Bravo on Muse-powered music playback, inside one Docker Desktop container.
+              NetherBeacon keeps Alpha on server operations, public commands and Palworld REST, while Bravo runs Muse in an isolated Docker Compose service with its own credentials.
             </p>
             <div class="actions">
               <a class="button" href="#quickstart">Start setup</a>
@@ -48,7 +48,8 @@
 
           <aside class="status-card" aria-label="Runtime preview">
             <pre class="terminal"><span class="cursor">●</span> Alpha online
-mode        additive, non-destructive
+resources   non-destructive
+permissions strict, ID-bound
 music       Muse 2.11.5
 stats       debounced voice KPIs
 palworld   REST commands
@@ -70,11 +71,11 @@ public URL  optional</pre>
           <div class="grid">
             <article class="card">
               <h3>Safe server sync</h3>
-              <p><strong>Alpha</strong> audits roles, categories and channels, then applies additive corrections only when intent is clear.</p>
+              <p><strong>Alpha</strong> reuses managed IDs, creates missing resources without deleting channels or roles, and enforces the declared managed permissions exactly.</p>
             </article>
             <article class="card">
               <h3>Music under one roof</h3>
-              <p><strong>Bravo</strong> runs upstream Muse in the same container with a Docker volume mounted at <code>/data</code>.</p>
+              <p><strong>Bravo</strong> runs upstream Muse in its own service with a dedicated credential environment and the historical Docker volume mounted at <code>/data</code>.</p>
             </article>
             <article class="card">
               <h3>Public fun commands</h3>
@@ -107,7 +108,7 @@ public URL  optional</pre>
           <div class="commands">
             <div class="command"><code>/status</code><br>Show Alpha, Bravo, runtime and cache status.</div>
             <div class="command"><code>/audit</code><br>Compare desired server structure without changing anything.</div>
-            <div class="command"><code>/resync</code><br>Apply additive managed Discord changes.</div>
+            <div class="command"><code>/resync</code><br>Create missing resources and enforce managed Discord permissions.</div>
             <div class="command"><code>/stats-refresh</code><br>Force the Stats voice channels to refresh.</div>
             <div class="command"><code>/diag</code><br>Show safe Alpha, Bravo, stats and command diagnostics.</div>
             <div class="command"><code>/cache-status</code><br>Report local cache size and age without file contents.</div>

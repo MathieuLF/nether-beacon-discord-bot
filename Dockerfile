@@ -8,4 +8,4 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY . /bot
 
 ENTRYPOINT ["tini", "--"]
-CMD ["node", "/bot/supervisor.js"]
+CMD ["node", "/bot/bot.js"]

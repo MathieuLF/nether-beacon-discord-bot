@@ -34,6 +34,7 @@ const {
   findManagedChannelIdByName,
   findManagedLogChannelId,
 } = require('./lib/reconcile');
+const { loadManagedIds } = require('./lib/managed-ids');
 const {
   createAdminState,
   readJson,
@@ -66,6 +67,10 @@ const {
   formatTypeSummary,
   formatWeaknessSummary,
 } = require('./lib/pokedex');
+const {
+  normalizeDiscordReplyPayload,
+  normalizePokedexFallbackPayload,
+} = require('./lib/pokedex-reply');
 const pkg = require('./package.json');
 
 const BOT_TOKEN = env.DISCORD_BOT_TOKEN;
@@ -127,6 +132,7 @@ const STATS_CHANNEL_PREFIXES = {
 };
 const PUBLIC_COMMAND_COOLDOWN_MS = 5000;
 const publicCommandCooldown = createCooldown({ durationMs: PUBLIC_COMMAND_COOLDOWN_MS });
+const pokedexGlobalCooldown = createCooldown({ durationMs: env.BOT_POKEAPI_GLOBAL_COOLDOWN_MS });
 const palworldMetricsCooldown = createCooldown({ durationMs: PALWORLD_METRICS_COOLDOWN_MS });
 const palworldAdminCooldown = createCooldown({ durationMs: PALWORLD_ADMIN_COOLDOWN_MS });
 
@@ -249,15 +255,30 @@ if (FULL_PROFILE_ENABLED) {
 
 const client = new Client({ intents: gatewayIntents });
 
+const getManagedRoleIds = () => {
+  const registry = loadManagedIds();
+  if (registry.guildId !== GUILD_ID) {
+    return { adminRoleId: null, modRoleId: null };
+  }
+  return {
+    adminRoleId: registry.roles?.[ADMIN_ROLE_NAME] || null,
+    modRoleId: registry.roles?.[MOD_ROLE_NAME] || null,
+  };
+};
+
+const readServiceState = () => ({
+  children: {
+    admin: { running: state.healthy },
+    muse: readJson(paths.museStatePath),
+  },
+});
+
 const hasAdminAccess = (interaction) => {
-  return interactionHasAdminAccess(interaction, ADMIN_ROLE_NAME);
+  return interactionHasAdminAccess(interaction, getManagedRoleIds().adminRoleId);
 };
 
 const hasStaffAccess = (interaction) => {
-  return interactionHasStaffAccess(interaction, {
-    adminRoleName: ADMIN_ROLE_NAME,
-    modRoleName: MOD_ROLE_NAME,
-  });
+  return interactionHasStaffAccess(interaction, getManagedRoleIds());
 };
 
 const isPalworldRestConfigured = () =>
@@ -297,32 +318,9 @@ const runPokedexCommand = async (interaction) => {
   throw new Error('Unknown Pokédex command.');
 };
 
-const normalizeDiscordReplyPayload = (result) => {
-  if (typeof result === 'string') {
-    return { content: result.slice(0, 1990) };
-  }
-
-  return {
-    ...result,
-    content: result.content?.slice(0, 1990) || '',
-  };
-};
-
-const normalizePokedexFallbackPayload = (result, error) => {
-  const content = typeof result === 'string' ? result : result?.content || '';
-  return {
-    content: [
-      content.slice(0, 1750),
-      '',
-      '_Image non jointe cette fois-ci : Discord a refusé l’envoi de l’attachement._',
-      `_Détail technique : ${error.message}_`,
-    ].join('\n').slice(0, 1990),
-  };
-};
-
-const formatPokedexLookupError = (error) =>
+const formatPokedexLookupError = () =>
   formatBotMessage('⚠️ Pokédex', [
-    formatLine('Erreur', error.message),
+    formatLine('Erreur', 'La recherche ne peut pas être terminée pour le moment.'),
     'Utilise les noms anglais, par exemple `charizard`, `mr-mime`, `thunderbolt` ou `fairy`.',
   ]);
 
@@ -514,10 +512,6 @@ const registerSlashCommands = async (guild) => {
 
 const knownSecretValues = () => [
   BOT_TOKEN,
-  process.env.MUSE_DISCORD_TOKEN,
-  process.env.MUSE_YOUTUBE_API_KEY,
-  process.env.MUSE_SPOTIFY_CLIENT_ID,
-  process.env.MUSE_SPOTIFY_CLIENT_SECRET,
   PALWORLD_REST_API_URL,
   PALWORLD_REST_API_USERNAME,
   PALWORLD_REST_API_PASSWORD,
@@ -872,9 +866,9 @@ const startStatsScheduler = () => {
 };
 
 const summarizeStatus = (guild) => {
-  const supervisor = readJson(paths.supervisorStatePath);
-  const museState = supervisor?.children?.muse;
-  const adminState = supervisor?.children?.admin;
+  const services = readServiceState();
+  const museState = services?.children?.muse;
+  const adminState = services?.children?.admin;
   return [
     '**🛰️ NetherBeacon Alpha en bref**',
     '',
@@ -1160,7 +1154,7 @@ const helpText = [
   '',
   '**Fonctions**',
   '- audit non destructif du serveur cible',
-  '- resynchronisation additive des rôles, catégories et salons gérés',
+  '- création non destructive des ressources et permissions gérées strictes',
   '- logs des arrivées, départs et mouvements vocaux',
   '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
   '- Palworld: statut public Gaylemon et annonces staff vers le jeu',
@@ -1192,7 +1186,7 @@ const buildStartupLogMessage = (startupReport) =>
     '',
     '**Synchronisation**',
     formatLine('Résultat', startupReport.summary),
-    formatLine('Mode', 'additif et non destructif'),
+    formatLine('Mode', 'ressources non destructives, permissions strictes'),
     '',
     '**Raccourcis admin**',
     formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status']),
@@ -1292,6 +1286,17 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
+    const globalCooldownSeconds = pokedexGlobalCooldown.reserve('pokedex-global');
+    if (globalCooldownSeconds > 0) {
+      await interaction.reply({
+        content: formatBotMessage('⏳ Pokédex occupé', [
+          `Réessaie dans ${globalCooldownSeconds}s.`,
+        ]),
+        ephemeral: true,
+      }).catch(() => undefined);
+      return;
+    }
+
     try {
       await interaction.deferReply();
       const result = await runPokedexCommand(interaction);
@@ -1299,16 +1304,17 @@ client.on('interactionCreate', async (interaction) => {
         await interaction.editReply(normalizeDiscordReplyPayload(result));
       } catch (sendError) {
         console.error(`[pokedex:${interaction.commandName}] reply failed`, sendError);
-        await interaction.editReply(normalizePokedexFallbackPayload(result, sendError));
+        await interaction.editReply(normalizePokedexFallbackPayload(result));
       }
     } catch (error) {
       console.error(`[pokedex:${interaction.commandName}] lookup failed`, error);
       const content = formatPokedexLookupError(error);
+      const payload = { content, allowedMentions: { parse: [] } };
 
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ content }).catch(() => undefined);
+        await interaction.editReply(payload).catch(() => undefined);
       } else {
-        await interaction.reply({ content, ephemeral: true }).catch(() => undefined);
+        await interaction.reply({ ...payload, ephemeral: true }).catch(() => undefined);
       }
     }
     return;
@@ -1425,12 +1431,12 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.commandName === 'diag') {
-      const supervisor = readJson(paths.supervisorStatePath);
+      const services = readServiceState();
       await interaction.reply({
         content: formatDiagnostics({
           state,
           guild,
-          supervisor,
+          services,
           pingMs: client.ws.ping,
           commandHash,
           commandCount: commandPayload.length,

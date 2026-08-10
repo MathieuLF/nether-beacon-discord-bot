@@ -21,7 +21,7 @@ test('diagnostic output redacts known secrets', () => {
       lastError: `request failed token=${secret}`,
     },
     guild: { name: 'Test Guild', id: 'guild-1' },
-    supervisor: {
+    services: {
       children: {
         admin: { running: true },
         muse: { running: true },
