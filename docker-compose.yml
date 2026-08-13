@@ -42,6 +42,8 @@ services:
       - GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS
       - GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES
     restart: always
+    user: "10001:10001"
+    read_only: true
     depends_on:
       nether-beacon-muse:
         condition: service_healthy
@@ -86,6 +88,8 @@ services:
       - MUSE_BOT_ACTIVITY
       - BOT_PEER_STATE_DIR=/bot/peer-state
     restart: always
+    user: "10001:10001"
+    read_only: true
     cpus: 1.0
     mem_limit: 512m
     cap_drop:

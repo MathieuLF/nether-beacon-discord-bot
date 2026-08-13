@@ -24,6 +24,10 @@ Nom du stack: `NetherBeacon`
 - depot de production: `/srv/example/discord-bot/app`
 - coffre de production DockPanel: `nether-beacon-production`
 - lanceur de production root-only: `/usr/local/sbin/nether-beacon-deploy`
+- le lanceur étiquette l'image active pour rollback, construit la candidate,
+  attribue uniquement `runtime`, `peer-state` et `example-muse-data` à
+  l'UID/GID `10001`, puis recrée les deux services sans second build; un
+  healthcheck en échec restaure automatiquement l'image précédente
 
 ## Fonctions Et Possibilites
 

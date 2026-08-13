@@ -20,6 +20,7 @@ import re
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 import uuid
@@ -33,6 +34,9 @@ DEFAULT_VAULT = "nether-beacon-production"
 CONTAINER_NAMES = ("nether-beacon", "nether-beacon-muse")
 DOCKER_EXECUTABLE = "/usr/bin/docker"
 TRUSTED_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+RUNTIME_UID = 10001
+RUNTIME_GID = 10001
+RUNTIME_VOLUMES = ("example-muse-data", "example-peer-state")
 REQUIRED_KEYS = {"DISCORD_GUILD_ID", "DISCORD_BOT_TOKEN", "MUSE_DISCORD_TOKEN"}
 ENV_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 ALLOWED_KEYS = frozenset(
@@ -235,6 +239,92 @@ def wait_until_healthy(timeout_seconds: int = 120) -> None:
     raise DeploymentError(f"Containers did not become healthy: {last_states}")
 
 
+def tag_rollback_image(child_env: dict[str, str]) -> str:
+    result = subprocess.run(
+        [DOCKER_EXECUTABLE, "inspect", "--format", "{{.Image}}", CONTAINER_NAMES[0]],
+        capture_output=True,
+        text=True,
+        env=child_env,
+        check=True,
+    )
+    image_id = result.stdout.strip()
+    if not re.fullmatch(r"sha256:[a-f0-9]{64}", image_id):
+        raise DeploymentError("The active Nether Beacon image ID is invalid")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    rollback_tag = f"nether-beacon:rollback-{stamp}"
+    subprocess.run(
+        [DOCKER_EXECUTABLE, "image", "tag", image_id, rollback_tag],
+        env=child_env,
+        check=True,
+    )
+    return rollback_tag
+
+
+def chown_tree(path: Path) -> None:
+    path.mkdir(mode=0o750, parents=True, exist_ok=True)
+    for root, directories, files in os.walk(path, followlinks=False):
+        os.chown(root, RUNTIME_UID, RUNTIME_GID, follow_symlinks=False)
+        for name in (*directories, *files):
+            os.chown(Path(root) / name, RUNTIME_UID, RUNTIME_GID, follow_symlinks=False)
+
+
+def prepare_runtime_ownership(compose_file: Path, child_env: dict[str, str]) -> None:
+    chown_tree(compose_file.parent / "runtime")
+    for volume in RUNTIME_VOLUMES:
+        subprocess.run(
+            [DOCKER_EXECUTABLE, "volume", "inspect", volume],
+            capture_output=True,
+            text=True,
+            env=child_env,
+            check=True,
+        )
+        subprocess.run(
+            [
+                DOCKER_EXECUTABLE,
+                "run",
+                "--rm",
+                "--user",
+                "0:0",
+                "--entrypoint",
+                "/usr/bin/chown",
+                "--mount",
+                f"type=volume,src={volume},dst=/target",
+                "nether-beacon:latest",
+                "-R",
+                f"{RUNTIME_UID}:{RUNTIME_GID}",
+                "/target",
+            ],
+            env=child_env,
+            check=True,
+        )
+
+
+def restore_rollback_image(
+    rollback_tag: str, compose_file: Path, child_env: dict[str, str]
+) -> None:
+    subprocess.run(
+        [DOCKER_EXECUTABLE, "image", "tag", rollback_tag, "nether-beacon:latest"],
+        env=child_env,
+        check=True,
+    )
+    subprocess.run(
+        [
+            DOCKER_EXECUTABLE,
+            "compose",
+            "-f",
+            str(compose_file),
+            "up",
+            "-d",
+            "--force-recreate",
+            "--no-build",
+        ],
+        cwd=compose_file.parent,
+        env=child_env,
+        check=True,
+    )
+    wait_until_healthy()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="validate vault access without deploying")
@@ -255,14 +345,36 @@ def main() -> int:
         return 0
 
     child_env = build_child_env(values)
+    rollback_tag = tag_rollback_image(child_env)
     subprocess.run(
-        [DOCKER_EXECUTABLE, "compose", "-f", str(compose_file), "up", "-d", "--build", "--force-recreate"],
+        [DOCKER_EXECUTABLE, "compose", "-f", str(compose_file), "build"],
         cwd=compose_file.parent,
         env=child_env,
         check=True,
     )
-    wait_until_healthy()
-    print(f"{', '.join(CONTAINER_NAMES)} are healthy")
+    prepare_runtime_ownership(compose_file, child_env)
+    try:
+        subprocess.run(
+            [
+                DOCKER_EXECUTABLE,
+                "compose",
+                "-f",
+                str(compose_file),
+                "up",
+                "-d",
+                "--force-recreate",
+                "--no-build",
+            ],
+            cwd=compose_file.parent,
+            env=child_env,
+            check=True,
+        )
+        wait_until_healthy()
+    except (DeploymentError, subprocess.CalledProcessError):
+        print(f"Deployment failed; restoring {rollback_tag}", file=sys.stderr)
+        restore_rollback_image(rollback_tag, compose_file, child_env)
+        raise DeploymentError(f"New image failed health checks; restored {rollback_tag}")
+    print(f"{', '.join(CONTAINER_NAMES)} are healthy; rollback image: {rollback_tag}")
     return 0
 
 

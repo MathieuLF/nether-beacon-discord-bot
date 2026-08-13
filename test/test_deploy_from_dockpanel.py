@@ -53,6 +53,33 @@ class DeployFromDockPanelSecurityTests(unittest.TestCase):
         self.assertTrue(deploy.DOCKER_EXECUTABLE.startswith("/"))
         self.assertEqual(deploy.DOCKER_EXECUTABLE, "/usr/bin/docker")
 
+    def test_runtime_identity_and_exact_volume_allowlist(self):
+        self.assertEqual((deploy.RUNTIME_UID, deploy.RUNTIME_GID), (10001, 10001))
+        self.assertEqual(
+            deploy.RUNTIME_VOLUMES,
+            ("example-muse-data", "example-peer-state"),
+        )
+
+    @patch.object(deploy.subprocess, "run")
+    @patch.object(deploy, "chown_tree")
+    def test_runtime_ownership_checks_each_exact_volume(self, chown_tree, run):
+        compose_file = Path("/srv/example/discord-bot/app/docker-compose.yml")
+        child_env = deploy.build_child_env({})
+
+        deploy.prepare_runtime_ownership(compose_file, child_env)
+
+        chown_tree.assert_called_once_with(Path("/srv/example/discord-bot/app/runtime"))
+        inspected = [
+            item.args[0][3]
+            for item in run.call_args_list
+            if item.args[0][1:3] == ["volume", "inspect"]
+        ]
+        self.assertEqual(inspected, list(deploy.RUNTIME_VOLUMES))
+        for volume in deploy.RUNTIME_VOLUMES:
+            self.assertTrue(
+                any(f"type=volume,src={volume},dst=/target" in item.args[0] for item in run.call_args_list)
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
