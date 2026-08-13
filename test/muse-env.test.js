@@ -22,6 +22,7 @@ test('Muse receives only its own secrets and required runtime variables', () => 
   assert.equal(museEnv.SPOTIFY_CLIENT_ID, 'spotify-id');
   assert.equal(museEnv.SPOTIFY_CLIENT_SECRET, 'spotify-secret');
   assert.equal(museEnv.CACHE_LIMIT, '512MB');
+  assert.equal(museEnv.DATA_DIR, '/data');
   assert.equal(museEnv.PATH, '/usr/local/bin:/usr/bin');
   assert.equal(museEnv.HOME, '/home/node');
   assert.equal(museEnv.LANG, 'C.UTF-8');
