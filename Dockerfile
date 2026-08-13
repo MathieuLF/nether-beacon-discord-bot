@@ -5,7 +5,7 @@ WORKDIR /bot
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-COPY . /bot
+COPY --chown=10001:10001 . /bot
 
 RUN groupadd --gid 10001 netherbeacon && \
     useradd --uid 10001 --gid 10001 --home-dir /bot --shell /usr/sbin/nologin netherbeacon && \
