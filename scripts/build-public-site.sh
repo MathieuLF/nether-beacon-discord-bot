@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-output_dir="${1:-public}"
+repository="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+output_dir="$repository/public"
+
+cd -- "$repository"
 
 test -f docs/site/index.html
 rm -rf -- "$output_dir"
@@ -16,4 +19,4 @@ install -m 0644 \
   NOTICE.md \
   "$output_dir/"
 
-printf 'Static site assembled in %s\n' "$output_dir"
+printf 'Static site assembled in public/\n'
