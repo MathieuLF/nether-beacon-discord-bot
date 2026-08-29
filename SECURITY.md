@@ -18,7 +18,7 @@ Never publish:
 
 Use `.env.example` as the public template.
 
-The root-only DockPanel deploy helper accepts only the application keys declared in its static allowlist, pins the local Docker socket and invokes `/usr/bin/docker` through a minimal environment.
+Self-hosted installations should inject only the variables declared in `.env.example`, use an owner-controlled secret manager and keep deployment automation in a private infrastructure repository. Do not publish root-only helpers, control-plane endpoints or secret-store identifiers here.
 
 ## Reporting
 
