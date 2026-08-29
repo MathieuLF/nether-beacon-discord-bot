@@ -132,6 +132,16 @@
           "topic": "Raids, sorties, échanges, captures et entraide autour de Pokémon GO."
         },
         {
+          "name": "⛏️・minecraft",
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "topic": "Survie, constructions, redstone, serveurs et entraide autour de Minecraft."
+        },
+        {
           "name": "📜・arrivées-et-départs",
           "legacyNames": [
             "arrivees-et-departs"

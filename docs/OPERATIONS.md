@@ -11,6 +11,8 @@ The Compose file runs two isolated services from one image:
 
 Neither service needs a public HTTP port. Discord Gateway connections are outbound. Optional upstream integrations should be reachable only through routes explicitly controlled by the operator.
 
+The declarative server plan includes dedicated public community channels for Palworld, Pokémon GO and Minecraft. Managed channel permissions and topics converge to that plan.
+
 ## Requirements
 
 - Docker Engine with Compose v2;

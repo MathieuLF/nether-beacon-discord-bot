@@ -24,6 +24,7 @@ test('captureManagedIdsFromDiscordSnapshot captures exact managed resources', ()
       makeChannel('general', '💬・général', ChannelType.GuildText, 'cat-community'),
       makeChannel('palworld', '🐾・palworld', ChannelType.GuildText, 'cat-community'),
       makeChannel('pokemon-go', '📍・pokemon-go', ChannelType.GuildText, 'cat-community'),
+      makeChannel('minecraft', '⛏️・minecraft', ChannelType.GuildText, 'cat-community'),
       makeChannel('events', '📜・arrivées-et-départs', ChannelType.GuildText, 'cat-community'),
       makeChannel('invites', '🎮・invitations', ChannelType.GuildText, 'cat-community'),
       makeChannel('tests', '🧪・essais', ChannelType.GuildText, 'cat-archives'),
@@ -47,6 +48,7 @@ test('captureManagedIdsFromDiscordSnapshot captures exact managed resources', ()
   assert.equal(registry.channels['🌍 Communauté::GuildText::💬・général'], 'general');
   assert.equal(registry.channels['🌍 Communauté::GuildText::🐾・palworld'], 'palworld');
   assert.equal(registry.channels['🌍 Communauté::GuildText::📍・pokemon-go'], 'pokemon-go');
+  assert.equal(registry.channels['🌍 Communauté::GuildText::⛏️・minecraft'], 'minecraft');
   assert.equal(registry.channels['🗃️ Archives::GuildText::🧪・essais'], 'tests');
 });
 

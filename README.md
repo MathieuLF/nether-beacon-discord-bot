@@ -13,7 +13,7 @@ This public repository contains the application and its local-development contra
 | Area | Capabilities |
 | --- | --- |
 | Server management | Audit and reconciliation of declared roles, channels, categories and managed permissions |
-| Community | Arrival, departure, voice and presence events; bounded public statistics |
+| Community | Dedicated public spaces for Palworld, Pokémon GO and Minecraft; arrival, departure, voice and presence events; bounded public statistics |
 | Music | Isolated upstream Muse service with separate credentials and state |
 | Pokédex | Cached `/pokemon`, `/weakness`, `/move`, `/ability`, `/type` and `/random-pokemon` lookups |
 | Palworld | Filtered public metrics and staff-only announcements through separately configured endpoints |
