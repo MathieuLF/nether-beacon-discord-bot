@@ -1,97 +1,45 @@
-# Public GitHub Publication Checklist
+# Public repository checklist
 
-This repository is being prepared for a public GitHub release, but the live deployment still contains local secrets and runtime state that must stay private.
+This checklist keeps the public source useful without publishing the details of any private installation.
 
-## Before creating the public repository
+## Before a public change
 
-- Confirm the final repository slug, for example `OWNER/REPO`.
-- Replace `OWNER/REPO` in `README.md` badges.
-- Review `LICENSE` and confirm the copyright holder line.
-- Review `NOTICE.md` and `docs/LEGAL.md`.
-- Review screenshots or assets before publishing them.
-- Keep `.env` local only.
-- Keep Docker volume data local only.
+- review `.env.example` for placeholder-only values;
+- keep `.env`, `runtime/`, Muse data, logs and volume exports outside Git;
+- scan screenshots, fixtures and documentation for user data, invite URLs and infrastructure details;
+- keep `LICENSE`, `NOTICE.md` and `docs/LEGAL.md` aligned;
+- do not imply affiliation with Discord, Muse, PokéAPI or game publishers;
+- do not claim that a hosted instance is online merely because a commit or release exists.
 
-## Must never be committed
+## Public documentation boundary
 
-- `.env`
-- Discord bot tokens
-- YouTube API keys
-- Spotify client secrets
-- `runtime/`
-- `muse-data/`
-- Docker volume exports
-- logs containing bot tokens, guild secrets, invite URLs or private user data
+The repository may describe generic self-hosting, required variables, health checks and rollback principles. It must not contain:
 
-## Safe to commit
+- private hostnames, addresses, filesystem paths or container-control endpoints;
+- secret-vault names, account identifiers or platform versions;
+- production resource limits, backup destinations or maintenance schedules;
+- root-only deployment helpers or commands tied to the author's infrastructure;
+- unfiltered Discord, Palworld or user data.
 
-- `.env.example`
-- source files
-- schema/config templates
-- documentation
-- `LICENSE`
-- `NOTICE.md`
-- static microsite files under `docs/site/`
-- public-facing images in `assets/` after manual review
+Those facts belong in the operator's private infrastructure documentation.
 
-## Legal review before public launch
+## Validation
 
-- Confirm that MIT is the intended license.
-- Confirm the copyright holder shown in `LICENSE`.
-- Keep the no-affiliation wording in `NOTICE.md`.
-- Keep the Pokémon/PokéAPI runtime-cache boundary clear.
-- Do not publish downloaded Pokémon artwork from `runtime/pokedex-cache`.
-- Do not imply endorsement by Discord, Muse, PokéAPI, Nintendo, Creatures, GAME FREAK, The Pokémon Company, YouTube, Spotify, Docker, GitHub or Node.js.
-
-## README badges
-
-The README includes a Tokei badge with a placeholder:
-
-```md
-[![Tokei](https://tokei.rs/b1/github/OWNER/REPO?category=code)](https://github.com/OWNER/REPO)
-```
-
-After the public repository exists, replace `OWNER/REPO` with the final GitHub path.
-
-## Nethercore microsite deployment
-
-The public microsite is available at:
-
-- `https://beacon.nethercore.dev/`
-
-Its deployment source and entry point are:
-
-- branch: `main`
-- source: `docs/site/`
-- entry point: `docs/site/index.html`
-- deploy script: `.dockpanel/deploy.sh`
-
-A push to `main` triggers the DockPanel Git Deploy webhook, which publishes the contents of `docs/site/` atomically.
-
-## Pre-publication local checks
-
-Run these from `C:\Projects\nether-beacon`:
-
-```powershell
+```bash
+npm ci
 npm run validate:config
 npm test
+bash scripts/build-public-site.sh
 ```
 
-Optional manual checks:
+`npm run verify:pokedex` is an optional network test. `docker compose config --quiet` and `docker compose build` are useful private preflight checks when Docker is available.
 
-```powershell
-docker compose config
-docker compose build
+## Static presentation
+
+The public presentation source lives under `docs/site/`. Build a deployable directory without assuming a particular host or platform:
+
+```bash
+bash scripts/build-public-site.sh
 ```
 
-`docker compose config` can print environment-derived values. Only run it locally in a private terminal.
-
-## Deployment reminder
-
-For live rebuilds, prefer:
-
-```powershell
-.\scripts\rebuild-restart.ps1
-```
-
-This posts an orange restart notice in the Discord admin logs channel before rebuilding and restarting the container.
+Publishing the resulting directory is a separate, operator-authorized action.

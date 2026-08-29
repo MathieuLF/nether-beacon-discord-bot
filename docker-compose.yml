@@ -6,17 +6,6 @@ services:
     image: nether-beacon:latest
     container_name: nether-beacon
     command: ["node", "/bot/bot.js"]
-    labels:
-      dockpanel.managed: "true"
-      dockpanel.app.template: compose
-      dockpanel.app.management: external-compose
-      dockpanel.app.environment: production
-      dockpanel.app.primary: "true"
-      nethercore.runtime.contract: compose-v1
-      nethercore.service: nether-beacon
-      nethercore.component: bot
-      nethercore.backup.required-volumes: example-muse-data
-      nethercore.backup.excluded-volumes: example-peer-state
     environment:
       - DISCORD_GUILD_ID
       - DISCORD_BOT_TOKEN
@@ -86,15 +75,6 @@ services:
     image: nether-beacon:latest
     container_name: nether-beacon-muse
     command: ["node", "/bot/muse-runner.js"]
-    labels:
-      dockpanel.managed: "true"
-      dockpanel.app.template: compose
-      dockpanel.app.management: external-compose
-      dockpanel.app.environment: production
-      dockpanel.app.primary: "false"
-      nethercore.runtime.contract: compose-v1
-      nethercore.service: nether-beacon
-      nethercore.component: muse
     environment:
       - MUSE_DISCORD_TOKEN
       - MUSE_YOUTUBE_API_KEY

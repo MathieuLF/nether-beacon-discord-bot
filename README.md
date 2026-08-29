@@ -1,275 +1,95 @@
 # NetherBeacon
 
-> A self-hosted Discord stack for a private server: one admin bot, one Muse music bot, safe server reconciliation, live stats, Palworld commands, and public Pokédex commands.
+A self-hosted Discord stack for a private community: one administration bot, an isolated Muse music bot, safe server reconciliation, statistics, Palworld commands and public Pokédex commands.
 
-<!-- Public repository slug: MathieuLF/nether-beacon-discord-bot -->
+[![Node.js](https://img.shields.io/badge/Node.js-22.x-2f6f43?logo=nodedotjs&logoColor=white)](#requirements)
+[![discord.js](https://img.shields.io/badge/discord.js-14.27.0-5865F2?logo=discord.js&logoColor=white)](https://discord.js.org/)
+[![License MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-[![Node.js](https://img.shields.io/badge/Node.js-22.x-2f6f43?logo=nodedotjs&logoColor=white)](#)
-[![Docker Desktop](https://img.shields.io/badge/Docker%20Desktop-ready-2496ED?logo=docker&logoColor=white)](#quick-start)
-[![discord.js](https://img.shields.io/badge/discord.js-14.27.0-5865F2?logo=discord&logoColor=white)](https://discord.js.org/)
-[![Muse](https://img.shields.io/badge/Muse-2.11.5-ff5f8f)](https://github.com/museofficial/muse)
-[![PokéAPI](https://img.shields.io/badge/Pok%C3%A9API-cached%20locally-EF5350)](https://pokeapi.co/)
-[![Website](https://img.shields.io/badge/Website-live-222?logo=googlechrome&logoColor=white)](https://beacon.nethercore.dev/)
-[![Discord](https://img.shields.io/badge/Discord-Join%20the%20server-5865F2?logo=discord&logoColor=white)](https://discord.gg/2ghwj8B7Vd)
+This public repository contains the application and its local-development contract. It deliberately does not document a live deployment, private host, infrastructure topology, secret store or operator runbook.
 
-Official Discord server: [Join the community](https://discord.gg/2ghwj8B7Vd).
+## Capabilities
 
-## What it does
-
-NetherBeacon runs two isolated Docker Compose services with two Discord bot accounts:
-
-- **NetherBeacon - Alpha**: server audit, strict managed-permission resync, logs, stats, Palworld commands, public Pokédex commands.
-- **NetherBeacon - Bravo**: music playback through upstream Muse, with only Muse credentials and its persistent data volume.
-
-The project is designed to be **safe by default**:
-
-- no destructive deletion of existing Discord roles or channels;
-- Discord resources are reused by ID when known;
-- ambiguous duplicates are reported instead of guessed;
-- permissions and overwrites on managed roles/channels converge exactly to the declared plan;
-- runtime state and secrets are kept out of Git.
-
-This is a self-hosted side project for a private Discord server.
-
-## Feature map
-
-| Area | Features |
+| Area | Capabilities |
 | --- | --- |
-| Server management | `/audit`, `/resync`, managed roles/channels/categories, stable-ID registry, strict managed permissions |
-| Logs | admin logs, public arrivals/departures, voice join/leave/move tracking |
-| Stats | locked public voice channels updated every 5 minutes, with event debounce |
-| Community channels | dedicated public spaces for Palworld and Pokémon GO conversations |
-| Music | Isolated Muse service, persistent Docker volume |
-| Pokédex | `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon`, cached lookups and autocomplete |
-| Palworld | Public `/metrics-palworld` from filtered Gaylemon JSON and staff `/announce-palworld` relayed in game |
-| Gaylemon daily recap | Recap available on the Gaylemon site and on demand with `/resume-hier`; no automatic Discord post |
-| Operations | Docker Desktop, local healthcheck, restart notice script |
-| Website | static microsite in `docs/` |
+| Server management | Audit and reconciliation of declared roles, channels, categories and managed permissions |
+| Community | Arrival, departure, voice and presence events; bounded public statistics |
+| Music | Isolated upstream Muse service with separate credentials and state |
+| Pokédex | Cached `/pokemon`, `/weakness`, `/move`, `/ability`, `/type` and `/random-pokemon` lookups |
+| Palworld | Filtered public metrics and staff-only announcements through separately configured endpoints |
+| Diagnostics | Health checks, cache status and tests for permission and privacy boundaries |
 
-## Discord commands
+Reconciliation creates missing managed resources but never guesses among ambiguous duplicates or deletes unrelated roles and channels. Managed permissions converge to the declared plan.
 
-`BOT_PROFILE=minimal` is the safe default. `BOT_PROFILE=pokemon` adds the six public Pokédex commands while keeping automatic server reconciliation, member events, voice events and presence events disabled. Use `BOT_PROFILE=full` only when the complete administration and Stats feature set is required.
+## Bot profiles
 
-The production VPS runs `full`, exposing the complete 17-command catalog and enabling managed reconciliation, Stats, member events, voice events and presence events. Reconciliation creates missing resources without deleting roles or channels, but managed role permissions and channel overwrites are strict. Use `pokemon` when the public Pokédex must remain available without those administration and event features. Changing the profile is an explicit production operation, not a troubleshooting step.
+- `minimal` is the safe default and exposes only the smallest command set.
+- `pokemon` adds the public Pokédex commands without administration events.
+- `full` enables the administration, statistics and event capabilities for an explicitly managed environment.
 
-### Admin-only
+The selected profile is deployment configuration, not an indication that a public instance is running.
 
-- `/status` - Alpha, Bravo, runtime and cache status.
-- `/audit` - compare the desired Discord structure with the current server.
-- `/resync` - create missing managed resources and enforce their declared permissions.
-- `/help` - compact help.
-- `/welcome-preview` - preview the welcome message.
-- `/stats-refresh` - force Stats voice channels to refresh now.
-- `/diag` - safe runtime diagnostic for Alpha, Bravo, command hash and recent stats.
-- `/cache-status` - local runtime/Pokédex cache sizes and ages without file contents or secrets.
+## Requirements
 
-### Admin/moderator Palworld
+- Node.js 22 and npm, or Docker Compose for an isolated local run.
+- Discord application credentials for bot integration tests.
+- Optional upstream credentials only for the features that use them.
 
-- `/announce-palworld message:...` - publish a staff announcement in the Palworld Discord channel and relay it to the in-game server through the Palworld REST API.
+## Local setup
 
-### Public Palworld
+```powershell
+Copy-Item .env.example .env
+npm ci
+npm run validate:config
+npm test
+```
 
-- `/metrics-palworld` - show the latest public Gaylemon Palworld status and metrics. This command has a global 4-minute cooldown across the server.
-- `/resume-hier` - post the Gaylemon recap link for yesterday in the configured Palworld channel.
+Use placeholder or dedicated development credentials. Never reuse a production token in local development.
 
-### Public Pokédex
+To exercise the local Compose stack after reviewing `.env.example`:
 
-Use English Pokémon names.
+```powershell
+docker compose up -d --build
+docker compose ps
+```
 
-- `/pokemon name:charizard`
-- `/weakness pokemon:charizard`
-- `/move name:flamethrower`
-- `/ability name:intimidate`
-- `/type name:fire`
-- `/random-pokemon`
+## Validation
 
-Pokédex JSON and artwork are cached under `runtime/pokedex-cache` with bounded memory, disk, file-count and concurrent-request budgets. Artwork is accepted only from the approved PokéAPI sprite host after public-address, path and image validation.
-
-Validate the complete Pokédex path without registering the commands in Discord:
-
-```bash
+```powershell
+npm run validate:config
+npm test
 npm run verify:pokedex
 ```
 
-This calls PokéAPI for the six command formatters and the five autocomplete paths. It does not connect a Discord bot account.
+`npm test` is the default offline-oriented validation. `verify:pokedex` contacts PokéAPI and should be run only when an upstream network check is intended.
 
-## Palworld public data and admin REST
+## Repository map
 
-Public Palworld commands read the filtered Gaylemon microsite JSON by default:
+| Path | Purpose |
+| --- | --- |
+| `bot.js` | Main Discord bot and command dispatch |
+| `lib/` | Reconciliation, permissions and bounded upstream integrations |
+| `config/` | Declarative server plan and JSON schema |
+| `tests/` | Command, access-control, cache and privacy-boundary tests |
+| `docs/site/` | Static presentation source |
+| `runtime/` | Generated local state, ignored by Git |
 
-- `https://gaylemon.mathieu.pro/data/public-availability.json`
-- `https://gaylemon.mathieu.pro/data/public-metrics.json`
+## Security and privacy
 
-`/metrics-palworld` does not require the local Palworld admin REST API. It posts only public names already present in the filtered JSON and never falls back to private identifiers.
+- Never commit Discord tokens, API credentials, runtime identifiers, downloaded cache data or Muse state.
+- Public Palworld commands consume only a filtered public projection. Private player identifiers, addresses, coordinates and system paths must never enter Discord output or logs.
+- Staff actions require configured roles/channels, cooldowns and a separately protected administrative endpoint.
+- Pokédex artwork is accepted only from approved public hosts after URL, address, path, type and size validation.
+- `.env`, `runtime/`, `muse-data/` and `node_modules/` remain outside Git.
 
-The local admin REST API is used only for staff actions:
+Report vulnerabilities through the repository's private security-reporting channel rather than a public issue containing credentials or personal data.
 
-- `/announce-palworld` is reserved to admins/moderators, limited to configured channels, protected by cooldown, and calls `POST /announce`.
-- If the local tunnel or API is closed, the command fails with a short non-technical Discord message.
-- Do not log or post raw `/players` responses, IPs, Steam IDs, `playerId`, `userId`, `accountName`, coordinates, system paths or passwords.
+## Lifecycle and support
 
-## Gaylemon daily recap
+NetherBeacon is an independently maintained, self-hosted side project. A commit, release or passing health check does not assert the state of any installation. Operators are responsible for their own configuration, backups, Discord permissions and upstream terms of service.
 
-Alpha no longer posts a daily recap automatically. The recap remains available directly on the Gaylemon microsite, and `/resume-hier` can still return the previous local day's link on demand:
-
-```text
-https://gaylemon.mathieu.pro/resume?jour=YYYY-MM-DD
-```
-
-- no scheduled Discord notification
-- local day boundary: `America/Toronto`
-- manual public command: `/resume-hier`
-
-When `/resume-hier` is used, the bot checks `/resume?jour=...` and `data/public-events-index.json` before replying. The Discord response stays concise: title, short recap text, and the direct link.
-
-## Repository layout
-
-```text
-.
-├── bot.js                    # Alpha admin/public command bot
-├── muse-runner.js            # isolated Muse child and heartbeat
-├── healthcheck.js            # Alpha healthcheck
-├── muse-healthcheck.js       # Muse healthcheck
-├── docker-compose.yml        # isolated Alpha and Muse services
-├── Dockerfile
-├── config/
-│   ├── server-plan.json      # desired Discord structure
-│   └── server-plan.schema.json
-├── lib/
-│   ├── reconcile.js          # stable-ID reconciliation and strict managed ACLs
-│   ├── managed-ids.js        # runtime ID registry support
-│   ├── palworld-public.js    # filtered Gaylemon public JSON reader
-│   ├── palworld-rest.js      # staff-only Palworld admin REST announcements
-│   └── pokedex.js            # cached PokéAPI integration
-├── scripts/
-│   ├── capture-managed-ids.js
-│   ├── deploy-from-dockpanel.py # root-only VPS deploy helper
-│   ├── verify-pokedex-live.js   # live PokéAPI command probe
-│   └── rebuild-restart.ps1   # Discord orange notice + rebuild
-├── docs/
-│   ├── site/
-│   │   ├── index.html        # Nethercore microsite entrypoint
-│   │   └── assets/           # Microsite styles/scripts
-│   ├── OPERATIONS.md
-│   ├── PUBLICATION.md
-│   └── ASSETS.md
-└── runtime/                  # ignored, generated locally
-```
-
-## Quick start
-
-1. Start Docker Desktop.
-2. Copy `.env.example` to `.env`.
-3. Fill the Discord, YouTube and Spotify values in `.env`.
-4. Capture existing managed Discord IDs:
-
-```powershell
-npm run capture:ids
-```
-
-5. Build and start with a Discord restart notice:
-
-```powershell
-.\scripts\rebuild-restart.ps1
-```
-
-For the first ever launch, `docker compose up -d --build` is also valid if Alpha is not running yet and cannot post a restart notice.
-
-## Production VPS and DockPanel
-
-Production secrets and runtime configuration live in the owner-scoped DockPanel vault `nether-beacon-production`. The VPS has no persistent project `.env` file. The root-only deploy helper pulls the vault over DockPanel's local API, rejects keys outside its static application allowlist, passes the values to Compose through a minimal process environment, pins the local Docker socket and `/usr/bin/docker`, rebuilds both services and waits for both healthchecks:
-
-```bash
-sudo /usr/local/sbin/nether-beacon-deploy --check
-sudo /usr/local/sbin/nether-beacon-deploy
-```
-
-Do not run `docker compose up` directly on the VPS: it would bypass the vault-backed environment. After changing a value in DockPanel, run the helper explicitly; DockPanel 2.85 does not auto-inject vault updates into Compose apps.
-
-The vault is encrypted at rest and scoped to its DockPanel owner. At runtime, root and Docker administrators can still inspect container environment variables, which is an expected Docker trust boundary.
-
-## Runtime storage
-
-Ignored from Git:
-
-- `.env`
-- `runtime/`
-- `muse-data/`
-- `node_modules/`
-
-Persistent Docker volume:
-
-- `example-muse-data` mounted at `/data` (legacy compatibility name retained to preserve the existing Muse data)
-
-Recreatable runtime caches:
-
-- `runtime/pokedex-cache`
-- `runtime/admin-state.json`
-- `runtime/managed-ids.json`
-
-Internal Compose state:
-
-- `peer-state` carries only Muse heartbeat metadata to Alpha as a read-only mount; it contains no credentials.
-
-## Optional runtime tuning
-
-Defaults are documented in `.env.example`:
-
-- `BOT_STATS_EVENT_DEBOUNCE_MS=15000` groups noisy presence/voice events before refreshing Stats.
-- `BOT_STATS_VOICE_REFRESH_INTERVAL_MS=300000` limits Stats voice-channel renames.
-- `BOT_POKEAPI_CACHE_TTL_DAYS=30` controls JSON cache age.
-- `BOT_POKEAPI_MAX_ASSET_BYTES=5242880` rejects oversized Pokédex artwork downloads.
-- `BOT_POKEAPI_MAX_JSON_BYTES=1048576` caps each PokéAPI JSON response.
-- `BOT_POKEAPI_MAX_MEMORY_ENTRIES=64` bounds the in-process LRU cache.
-- `BOT_POKEAPI_MAX_CACHE_BYTES=268435456` and `BOT_POKEAPI_MAX_CACHE_FILES=512` bound persistent cache growth with oldest-first eviction.
-- `BOT_POKEAPI_MAX_CONCURRENT_REQUESTS=4` limits distinct upstream requests in flight.
-- `BOT_POKEAPI_GLOBAL_COOLDOWN_MS=1000` limits public Pokédex command throughput across the guild.
-- `BOT_PALWORLD_CHANNEL_NAME=🐾・palworld` controls where Palworld public metrics and Discord announcements are posted.
-- `BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS=5000` limits Gaylemon public JSON reads.
-- `BOT_PALWORLD_PUBLIC_CACHE_TTL_MS=15000` caches public status/player JSON briefly.
-- `BOT_PALWORLD_REST_API_URL=` enables staff-only Palworld admin REST features when set to the local API base URL, for example `http://127.0.0.1:8212/v1/api` or the host-exposed tunnel URL.
-- `BOT_PALWORLD_REST_API_USERNAME=` and `BOT_PALWORLD_REST_API_PASSWORD=` are used for Palworld REST Basic Auth and must never be committed.
-- `BOT_PALWORLD_REST_FETCH_TIMEOUT_MS=5000` limits staff-only Palworld REST calls.
-- `BOT_PALWORLD_REST_CIRCUIT_BREAKER_MS=30000` briefly stops repeated admin REST calls after a local API failure.
-- `BOT_PALWORLD_METRICS_COOLDOWN_MS=240000` controls the global `/metrics-palworld` cooldown.
-- `BOT_PALWORLD_ADMIN_COOLDOWN_MS=30000` controls the global cooldown for staff Palworld admin commands.
-- `BOT_PALWORLD_ADMIN_CHANNEL_NAMES=🐾・palworld` allowlists where staff Palworld admin commands can run. Prefer `BOT_PALWORLD_ADMIN_CHANNEL_IDS` if names ever become ambiguous.
-- `GAYLEMON_PUBLIC_BASE_URL=https://gaylemon.mathieu.pro` controls the recap microsite base URL.
-- `GAYLEMON_DAILY_SUMMARY_TIME_ZONE=America/Toronto` controls the local day boundary used by `/resume-hier`.
-- `GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS=5000` limits the availability check made by `/resume-hier`.
-- `GAYLEMON_DAILY_SUMMARY_MAX_JSON_BYTES=262144` bounds the recap index while the same total request deadline remains active.
-- `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES=🐾・palworld` controls where `/resume-hier` can be used. Prefer `GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS` if names ever become ambiguous.
-
-## Public GitHub readiness
-
-Before publishing:
-
-- review `.env.example` for placeholder-only values;
-- keep `.env`, `runtime/`, `muse-data/` and Docker volumes private;
-- keep production values in the DockPanel vault and deploy only through the root helper;
-- review the MIT license holder line in `LICENSE`;
-- review trademark and non-affiliation notices in `NOTICE.md`;
-- keep `docs/site/index.html` as the microsite entrypoint; pushes to `main` publish it to `https://beacon.nethercore.dev/` through DockPanel Git Deploy.
-
-Detailed checklist: [docs/PUBLICATION.md](docs/PUBLICATION.md).
-
-## Documentation
-
-- [Operations](docs/OPERATIONS.md)
-- [Publication checklist](docs/PUBLICATION.md)
-- [Legal notes](docs/LEGAL.md)
-- [Assets](docs/ASSETS.md)
-- [Live site](https://beacon.nethercore.dev/)
-- [Microsite source](docs/site/index.html)
-
-## License, notices and trademarks
+## License and notices
 
 NetherBeacon is released under the MIT License. See [LICENSE](LICENSE).
 
-Third-party trademarks, product names, game names, character names, logos and services belong to their respective owners. NetherBeacon has no official affiliation with Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse, PokéAPI or other referenced third parties.
-
-See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
-
-## Security note
-
-Never commit Discord bot tokens, YouTube API keys, Spotify secrets, runtime state or Muse data. Local development may use an ignored `.env`; production uses the owner-scoped DockPanel vault and has no persistent project `.env`.
+Third-party trademarks, product names, game names, characters, logos and services belong to their respective owners. NetherBeacon is not affiliated with Discord, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse or PokéAPI. See [NOTICE.md](NOTICE.md) and [docs/LEGAL.md](docs/LEGAL.md).
