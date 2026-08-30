@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { PermissionFlagsBits } = require('discord.js');
-const { _private } = require('../lib/reconcile');
+const { ChannelType, Collection, PermissionFlagsBits } = require('discord.js');
+const { plan, _private } = require('../lib/reconcile');
 
 const makeOverwriteCache = (entries) => ({
   size: entries.length,
@@ -104,4 +104,59 @@ test('ensureSectionChannelOrder reorders managed channels by plan order', async 
     { channel: 'events', position: 4 },
   ]]);
   assert.deepEqual(report.updated, ['ordre des salons 🌍 Communauté']);
+});
+
+test('ensureManagedCategoryOrder keeps managed categories contiguous in plan order', async () => {
+  const calls = [];
+  const categories = [
+    { id: 'community', type: ChannelType.GuildCategory, position: 0 },
+    { id: 'unmanaged', type: ChannelType.GuildCategory, position: 1 },
+    { id: 'hall', type: ChannelType.GuildCategory, position: 2 },
+    { id: 'archives', type: ChannelType.GuildCategory, position: 3 },
+  ];
+  const guild = {
+    channels: {
+      cache: new Collection(categories.map((category) => [category.id, category])),
+      setPositions: async (positions) => {
+        calls.push(positions);
+      },
+    },
+  };
+  const report = { updated: [] };
+
+  const changed = await _private.ensureManagedCategoryOrder(
+    guild,
+    [categories[0], categories[2], categories[3]],
+    report,
+  );
+
+  assert.equal(changed, true);
+  assert.deepEqual(calls, [[
+    { channel: 'community', position: 0 },
+    { channel: 'hall', position: 1 },
+    { channel: 'archives', position: 2 },
+  ]]);
+  assert.deepEqual(report.updated, ['ordre des catégories gérées']);
+});
+
+test('findUniqueChannel reuses both Hall channels from their former category', () => {
+  const hallSection = plan.sections.find((section) => section.category === '🚪 Le Hall');
+  const existingChannels = hallSection.channels.map((channelDef, index) => ({
+    id: `existing-${index}`,
+    name: channelDef.name,
+    type: ChannelType[channelDef.type],
+    parentId: 'cat-community',
+    parent: { name: '🌍 Communauté' },
+  }));
+  const guild = {
+    channels: {
+      cache: new Collection(existingChannels.map((channel) => [channel.id, channel])),
+    },
+  };
+
+  for (const [index, channelDef] of hallSection.channels.entries()) {
+    const result = _private.findUniqueChannel(guild, 'cat-hall', channelDef, hallSection);
+    assert.equal(result.conflict, undefined);
+    assert.equal(result.value.id, `existing-${index}`);
+  }
 });

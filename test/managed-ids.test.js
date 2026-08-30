@@ -18,6 +18,7 @@ test('captureManagedIdsFromDiscordSnapshot captures exact managed resources', ()
     roles: plan.roles.map((role, index) => makeRole(`role-${index}`, role.name)),
     channels: [
       makeChannel('cat-community', '🌍 Communauté', ChannelType.GuildCategory),
+      makeChannel('cat-hall', '🚪 Le Hall', ChannelType.GuildCategory),
       makeChannel('cat-archives', '🗃️ Archives', ChannelType.GuildCategory),
       makeChannel('cat-voice', '🎙️ Vocaux', ChannelType.GuildCategory),
       makeChannel('cat-admin', '🛡️ Administration', ChannelType.GuildCategory),
@@ -25,8 +26,8 @@ test('captureManagedIdsFromDiscordSnapshot captures exact managed resources', ()
       makeChannel('palworld', '🐾・palworld', ChannelType.GuildText, 'cat-community'),
       makeChannel('pokemon-go', '📍・pokemon-go', ChannelType.GuildText, 'cat-community'),
       makeChannel('minecraft', '⛏️・minecraft', ChannelType.GuildText, 'cat-community'),
-      makeChannel('events', '📜・arrivées-et-départs', ChannelType.GuildText, 'cat-community'),
-      makeChannel('invites', '🎮・invitations', ChannelType.GuildText, 'cat-community'),
+      makeChannel('invites', '🎮・invitations', ChannelType.GuildText, 'cat-hall'),
+      makeChannel('events', '📜・arrivées-et-départs', ChannelType.GuildText, 'cat-hall'),
       makeChannel('tests', '🧪・essais', ChannelType.GuildText, 'cat-archives'),
       makeChannel('voice', '🎧・salon-vocal', ChannelType.GuildVoice, 'cat-voice'),
       makeChannel('in-game', '🎮・en-partie', ChannelType.GuildVoice, 'cat-voice'),
@@ -44,11 +45,14 @@ test('captureManagedIdsFromDiscordSnapshot captures exact managed resources', ()
   assert.equal(report.capturedChannels, plan.sections.reduce((count, section) => count + section.channels.length, 0));
   assert.equal(registry.roles['Noob Spawn'], 'role-0');
   assert.equal(registry.categories['🌍 Communauté'], 'cat-community');
+  assert.equal(registry.categories['🚪 Le Hall'], 'cat-hall');
   assert.equal(registry.categories['🗃️ Archives'], 'cat-archives');
   assert.equal(registry.channels['🌍 Communauté::GuildText::💬・général'], 'general');
   assert.equal(registry.channels['🌍 Communauté::GuildText::🐾・palworld'], 'palworld');
   assert.equal(registry.channels['🌍 Communauté::GuildText::📍・pokemon-go'], 'pokemon-go');
   assert.equal(registry.channels['🌍 Communauté::GuildText::⛏️・minecraft'], 'minecraft');
+  assert.equal(registry.channels['🚪 Le Hall::GuildText::🎮・invitations'], 'invites');
+  assert.equal(registry.channels['🚪 Le Hall::GuildText::📜・arrivées-et-départs'], 'events');
   assert.equal(registry.channels['🗃️ Archives::GuildText::🧪・essais'], 'tests');
 });
 
@@ -58,7 +62,10 @@ test('captureManagedIdsFromDiscordSnapshot accepts moved managed channels when a
     roles: plan.roles.map((role, index) => makeRole(`role-${index}`, role.name)),
     channels: [
       makeChannel('cat-community', '🌍 Communauté', ChannelType.GuildCategory),
+      makeChannel('cat-hall', '🚪 Le Hall', ChannelType.GuildCategory),
       makeChannel('cat-archives', '🗃️ Archives', ChannelType.GuildCategory),
+      makeChannel('invites', '🎮・invitations', ChannelType.GuildText, 'cat-community'),
+      makeChannel('events', '📜・arrivées-et-départs', ChannelType.GuildText, 'cat-community'),
       makeChannel('tests', '🧪・essais', ChannelType.GuildText, 'cat-community'),
     ],
   };
@@ -66,6 +73,8 @@ test('captureManagedIdsFromDiscordSnapshot accepts moved managed channels when a
   const { registry, report } = captureManagedIdsFromDiscordSnapshot(plan, snapshot);
 
   assert.equal(report.conflicts.length, 0);
+  assert.equal(registry.channels['🚪 Le Hall::GuildText::🎮・invitations'], 'invites');
+  assert.equal(registry.channels['🚪 Le Hall::GuildText::📜・arrivées-et-départs'], 'events');
   assert.equal(registry.channels['🗃️ Archives::GuildText::🧪・essais'], 'tests');
 });
 

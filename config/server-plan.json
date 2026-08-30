@@ -140,6 +140,26 @@
           ],
           "everyonePreset": "publicText",
           "topic": "Survie, constructions, redstone, serveurs et entraide autour de Minecraft."
+        }
+      ]
+    },
+    {
+      "category": "🚪 Le Hall",
+      "channels": [
+        {
+          "name": "🎮・invitations",
+          "legacyNames": [
+            "invitations",
+            "codes-invitation"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "allowExistingMove": true,
+          "topic": "Invitations de jeu, codes de lobby, seeds, realms et liens pour se rejoindre vite."
         },
         {
           "name": "📜・arrivées-et-départs",
@@ -154,20 +174,6 @@
           "everyonePreset": "defaultText",
           "allowExistingMove": true,
           "topic": "Journaux du serveur : arrivées, départs et activité vocale."
-        },
-        {
-          "name": "🎮・invitations",
-          "legacyNames": [
-            "invitations",
-            "codes-invitation"
-          ],
-          "type": "GuildText",
-          "preset": "textWrite",
-          "groups": [
-            "COMMUNITY"
-          ],
-          "everyonePreset": "publicText",
-          "topic": "Invitations de jeu, codes de lobby, seeds, realms et liens pour se rejoindre vite."
         }
       ]
     },
