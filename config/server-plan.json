@@ -147,21 +147,6 @@
       "category": "🚪 Le Hall",
       "channels": [
         {
-          "name": "🎮・invitations",
-          "legacyNames": [
-            "invitations",
-            "codes-invitation"
-          ],
-          "type": "GuildText",
-          "preset": "textWrite",
-          "groups": [
-            "COMMUNITY"
-          ],
-          "everyonePreset": "publicText",
-          "allowExistingMove": true,
-          "topic": "Invitations de jeu, codes de lobby, seeds, realms et liens pour se rejoindre vite."
-        },
-        {
           "name": "📜・arrivées-et-départs",
           "legacyNames": [
             "arrivees-et-departs"
@@ -174,28 +159,6 @@
           "everyonePreset": "defaultText",
           "allowExistingMove": true,
           "topic": "Journaux du serveur : arrivées, départs et activité vocale."
-        }
-      ]
-    },
-    {
-      "category": "🗃️ Archives",
-      "legacyNames": [
-        "Archives"
-      ],
-      "channels": [
-        {
-          "name": "🧪・essais",
-          "legacyNames": [
-            "tests"
-          ],
-          "type": "GuildText",
-          "preset": "textWrite",
-          "groups": [
-            "COMMUNITY"
-          ],
-          "everyonePreset": "defaultText",
-          "allowExistingMove": true,
-          "topic": "Bac d'archives pour tests, bots, commandes et petits essais sans polluer le général."
         }
       ]
     },
@@ -271,6 +234,43 @@
             "ADMIN_ONLY"
           ],
           "private": true
+        }
+      ]
+    },
+    {
+      "category": "🗃️ Archives",
+      "legacyNames": [
+        "Archives"
+      ],
+      "channels": [
+        {
+          "name": "🧪・essais",
+          "legacyNames": [
+            "tests"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "defaultText",
+          "allowExistingMove": true,
+          "topic": "Bac d'archives pour tests, bots, commandes et petits essais sans polluer le général."
+        },
+        {
+          "name": "🎮・invitations",
+          "legacyNames": [
+            "invitations",
+            "codes-invitation"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "allowExistingMove": true,
+          "topic": "Invitations de jeu, codes de lobby, seeds, realms et liens pour se rejoindre vite."
         }
       ]
     }

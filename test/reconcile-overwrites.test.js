@@ -139,24 +139,29 @@ test('ensureManagedCategoryOrder keeps managed categories contiguous in plan ord
   assert.deepEqual(report.updated, ['ordre des catégories gérées']);
 });
 
-test('findUniqueChannel reuses both Hall channels from their former category', () => {
-  const hallSection = plan.sections.find((section) => section.category === '🚪 Le Hall');
-  const existingChannels = hallSection.channels.map((channelDef, index) => ({
-    id: `existing-${index}`,
-    name: channelDef.name,
-    type: ChannelType[channelDef.type],
-    parentId: 'cat-community',
-    parent: { name: '🌍 Communauté' },
-  }));
+test('findUniqueChannel reuses invitations when moving it from Hall to Archives', () => {
+  const archivesSection = plan.sections.find((section) => section.category === '🗃️ Archives');
+  const invitations = archivesSection.channels.find((channel) => channel.name === '🎮・invitations');
+  const existingChannel = {
+    id: 'existing-invitations',
+    name: invitations.name,
+    type: ChannelType[invitations.type],
+    parentId: 'cat-hall',
+    parent: { name: '🚪 Le Hall' },
+  };
   const guild = {
     channels: {
-      cache: new Collection(existingChannels.map((channel) => [channel.id, channel])),
+      cache: new Collection([[existingChannel.id, existingChannel]]),
     },
   };
 
-  for (const [index, channelDef] of hallSection.channels.entries()) {
-    const result = _private.findUniqueChannel(guild, 'cat-hall', channelDef, hallSection);
-    assert.equal(result.conflict, undefined);
-    assert.equal(result.value.id, `existing-${index}`);
-  }
+  const result = _private.findUniqueChannel(
+    guild,
+    'cat-archives',
+    invitations,
+    archivesSection,
+  );
+
+  assert.equal(result.conflict, undefined);
+  assert.equal(result.value.id, 'existing-invitations');
 });
