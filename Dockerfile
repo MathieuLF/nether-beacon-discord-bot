@@ -23,6 +23,14 @@ CMD ["node", "/bot/bot.js"]
 FROM ${MUSE_IMAGE} AS muse
 
 USER root
+WORKDIR /usr/app
+
+RUN node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.resolutions=Object.assign({}, pkg.resolutions || {}, {'form-data':'4.0.6', tar:'7.5.19', esbuild:'0.25.7'}); fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');" && \
+    yarn install --production --ignore-scripts --non-interactive && \
+    yarn cache clean && \
+    npm install -g npm@12.0.2 && \
+    npm cache clean --force
+
 WORKDIR /bot
 
 COPY package.json package-lock.json ./
