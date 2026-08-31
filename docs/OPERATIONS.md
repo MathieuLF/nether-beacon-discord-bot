@@ -4,7 +4,7 @@ This guide describes a generic owner-controlled installation. It intentionally o
 
 ## Architecture
 
-The Compose file runs two isolated services from one image:
+The Compose file runs two isolated services from separate Docker build targets:
 
 - `nether-beacon` handles Discord commands, reconciliation, statistics and bounded integrations;
 - `nether-beacon-muse` runs Muse with its own credential environment and persistent data volume.
@@ -46,8 +46,8 @@ Changing profile changes registered Discord commands and must be treated as a de
 
 1. Review the source revision and dependency changes.
 2. Run `npm ci`, `npm run validate:config` and `npm test`.
-3. Build the candidate image without replacing the running services.
-4. Record the current image digest or ID for rollback.
+3. Build the candidate images without replacing the running services.
+4. Record the current image digests or IDs for rollback.
 5. Recreate only the two application services.
 6. Wait for both health checks and verify their restart counts and logs.
 7. Restore the previous image if either service fails its health check.

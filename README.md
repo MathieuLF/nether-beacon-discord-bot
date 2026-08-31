@@ -2,7 +2,7 @@
 
 A self-hosted Discord stack for a private community: one administration bot, an isolated Muse music bot, safe server reconciliation, statistics, Palworld commands and public Pokédex commands.
 
-[![Node.js](https://img.shields.io/badge/Node.js-22.x-2f6f43?logo=nodedotjs&logoColor=white)](#requirements)
+[![Node.js](https://img.shields.io/badge/Node.js-22%2B-2f6f43?logo=nodedotjs&logoColor=white)](#requirements)
 [![discord.js](https://img.shields.io/badge/discord.js-14.27.0-5865F2?logo=discord.js&logoColor=white)](https://discord.js.org/)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
@@ -31,7 +31,7 @@ The selected profile is deployment configuration, not an indication that a publi
 
 ## Requirements
 
-- Node.js 22 and npm, or Docker Compose for an isolated local run.
+- Node.js 22 or newer and npm, or Docker Compose for an isolated local run.
 - Discord application credentials for bot integration tests.
 - Optional upstream credentials only for the features that use them.
 

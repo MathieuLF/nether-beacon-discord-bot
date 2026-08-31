@@ -151,10 +151,14 @@ test('Compose isolates Alpha and Muse credentials in separate services', () => {
   assert.match(compose, /^  nether-beacon-muse:\s*$/m);
 
   const alphaBlock = compose.split(/^  nether-beacon-muse:\s*$/m)[0];
+  assert.match(alphaBlock, /target:\s*alpha/);
+  assert.match(alphaBlock, /image:\s*nether-beacon:alpha-latest/);
   assert.doesNotMatch(alphaBlock, /MUSE_DISCORD_TOKEN|MUSE_SPOTIFY_CLIENT_SECRET|MUSE_YOUTUBE_API_KEY/);
   assert.doesNotMatch(alphaBlock, /muse-data:\/data/);
 
   const museBlock = compose.split(/^  nether-beacon-muse:\s*$/m)[1];
+  assert.match(museBlock, /target:\s*muse/);
+  assert.match(museBlock, /image:\s*nether-beacon:muse-latest/);
   assert.doesNotMatch(museBlock, /DISCORD_BOT_TOKEN|BOT_PALWORLD_REST_API_PASSWORD/);
   assert.doesNotMatch(museBlock, /\.\/runtime:\/bot\/runtime/);
   assert.doesNotMatch(compose, /^\s+pid:\s*host\s*$/m);

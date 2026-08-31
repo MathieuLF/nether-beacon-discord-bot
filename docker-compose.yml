@@ -2,8 +2,10 @@ name: nether-beacon
 
 services:
   nether-beacon:
-    build: .
-    image: nether-beacon:latest
+    build:
+      context: .
+      target: alpha
+    image: nether-beacon:alpha-latest
     container_name: nether-beacon
     command: ["node", "/bot/bot.js"]
     environment:
@@ -71,8 +73,10 @@ services:
       start_period: 45s
 
   nether-beacon-muse:
-    build: .
-    image: nether-beacon:latest
+    build:
+      context: .
+      target: muse
+    image: nether-beacon:muse-latest
     container_name: nether-beacon-muse
     command: ["node", "/bot/muse-runner.js"]
     environment:
