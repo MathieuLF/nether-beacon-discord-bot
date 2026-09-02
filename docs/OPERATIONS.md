@@ -11,7 +11,7 @@ The Compose file runs two isolated services from separate Docker build targets:
 
 Neither service needs a public HTTP port. Discord Gateway connections are outbound. Optional upstream integrations should be reachable only through routes explicitly controlled by the operator.
 
-The declarative server plan includes dedicated public community channels for Palworld, Pokémon GO and Minecraft. Managed channel permissions and topics converge to that plan.
+The declarative server plan includes dedicated public community channels for Palworld, Pokémon GO, Minecraft and Vault Hunters. Managed channel permissions and topics converge to that plan.
 
 ## Requirements
 

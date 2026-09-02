@@ -140,6 +140,19 @@
           ],
           "everyonePreset": "publicText",
           "topic": "Survie, constructions, redstone, serveurs et entraide autour de Minecraft."
+        },
+        {
+          "name": "🔮・minecraft-vh",
+          "legacyNames": [
+            "minecraft-vh"
+          ],
+          "type": "GuildText",
+          "preset": "textWrite",
+          "groups": [
+            "COMMUNITY"
+          ],
+          "everyonePreset": "publicText",
+          "topic": "Vault Hunters et Chromarift, notre serveur privé : progression, groupes, échanges et entraide."
         }
       ]
     },

@@ -48,6 +48,7 @@ test('hasDesiredRelativeOrder accepts channels already sorted by position', () =
     { id: 'palworld', position: 1 },
     { id: 'pokemon-go', position: 2 },
     { id: 'minecraft', position: 3 },
+    { id: 'minecraft-vh', position: 4 },
   ];
 
   assert.equal(_private.hasDesiredRelativeOrder(channels), true);
@@ -85,6 +86,7 @@ test('ensureSectionChannelOrder reorders managed channels by plan order', async 
     { id: 'palworld', position: 1 },
     { id: 'pokemon-go', position: 7 },
     { id: 'minecraft', position: 8 },
+    { id: 'minecraft-vh', position: 9 },
     { id: 'events', position: 2 },
   ];
 
@@ -101,7 +103,8 @@ test('ensureSectionChannelOrder reorders managed channels by plan order', async 
     { channel: 'palworld', position: 1 },
     { channel: 'pokemon-go', position: 2 },
     { channel: 'minecraft', position: 3 },
-    { channel: 'events', position: 4 },
+    { channel: 'minecraft-vh', position: 4 },
+    { channel: 'events', position: 5 },
   ]]);
   assert.deepEqual(report.updated, ['ordre des salons 🌍 Communauté']);
 });
