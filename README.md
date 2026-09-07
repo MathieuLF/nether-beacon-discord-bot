@@ -2,7 +2,7 @@
 
 A self-hosted Discord stack for a private community: one administration bot, an isolated Muse music bot, safe server reconciliation, statistics, Palworld commands and public Pokédex commands.
 
-[![Node.js](https://img.shields.io/badge/Node.js-22%2B-2f6f43?logo=nodedotjs&logoColor=white)](#requirements)
+[![Node.js](https://img.shields.io/badge/Node.js-24-2f6f43?logo=nodedotjs&logoColor=white)](#requirements)
 [![discord.js](https://img.shields.io/badge/discord.js-14.27.0-5865F2?logo=discord.js&logoColor=white)](https://discord.js.org/)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
@@ -27,11 +27,13 @@ Reconciliation creates missing managed resources but never guesses among ambiguo
 - `pokemon` adds the public Pokédex commands without administration events.
 - `full` enables the administration, statistics and event capabilities for an explicitly managed environment.
 
+`/help` is public in every profile and lists commands for the caller’s role. Muse is optional: follow [the installation guide](docs/OPERATIONS.md) for the separate Compose `music` profile, volume initialization, stable-ID capture and upgrades.
+
 The selected profile is deployment configuration, not an indication that a public instance is running.
 
 ## Requirements
 
-- Node.js 22 or newer and npm, or Docker Compose for an isolated local run.
+- Node.js 24 and npm, or Docker Compose for an isolated local run.
 - Discord application credentials for bot integration tests.
 - Optional upstream credentials only for the features that use them.
 
@@ -40,8 +42,7 @@ The selected profile is deployment configuration, not an indication that a publi
 ```powershell
 Copy-Item .env.example .env
 npm ci
-npm run validate:config
-npm test
+npm run check
 ```
 
 Use placeholder or dedicated development credentials. Never reuse a production token in local development.
@@ -49,15 +50,15 @@ Use placeholder or dedicated development credentials. Never reuse a production t
 To exercise the local Compose stack after reviewing `.env.example`:
 
 ```powershell
-docker compose up -d --build
+npm run init:local
+docker compose up -d --wait nether-beacon
 docker compose ps
 ```
 
 ## Validation
 
 ```powershell
-npm run validate:config
-npm test
+npm run check
 npm run verify:pokedex
 ```
 
@@ -70,7 +71,7 @@ npm run verify:pokedex
 | `bot.js` | Main Discord bot and command dispatch |
 | `lib/` | Reconciliation, permissions and bounded upstream integrations |
 | `config/` | Declarative server plan and JSON schema |
-| `tests/` | Command, access-control, cache and privacy-boundary tests |
+| `test/` | Command, access-control, cache and privacy-boundary tests |
 | `docs/site/` | Static presentation source |
 | `runtime/` | Generated local state, ignored by Git |
 

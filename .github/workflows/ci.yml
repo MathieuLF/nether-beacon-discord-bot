@@ -1,0 +1,33 @@
+name: Validate
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --omit=dev --audit-level=high
+  containers:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [alpha, muse]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: docker build --target ${{ matrix.target }} -t nether-beacon:ci .
+      - name: Verify unprivileged runtime without credentials or network
+        run: docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --entrypoint node nether-beacon:ci -e "if(process.getuid()!==10001)process.exit(1);require('/bot/lib/service-health');console.log(process.version)"

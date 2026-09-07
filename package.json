@@ -11,7 +11,12 @@
     "validate:config": "node scripts/validate-config.js",
     "verify:pokedex": "node scripts/verify-pokedex-live.js",
     "capture:ids": "node scripts/capture-managed-ids.js",
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "build:site": "node scripts/build-public-site.js",
+    "init:local": "node scripts/init-local.js",
+    "check": "npm run validate:config && npm run lint && npm run typecheck && npm test && npm run build:site"
   },
   "dependencies": {
     "ajv": "8.20.0",
@@ -20,5 +25,15 @@
   },
   "overrides": {
     "undici": "6.28.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.13.3",
+    "eslint": "10.10.0",
+    "globals": "17.12.0",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   }
 }

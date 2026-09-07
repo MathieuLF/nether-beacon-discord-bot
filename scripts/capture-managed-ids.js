@@ -30,14 +30,15 @@ const main = async () => {
     loadManagedIds(),
   );
 
-  saveManagedIds(registry);
-
   console.log(`Managed IDs captured: roles=${report.capturedRoles} categories=${report.capturedCategories} channels=${report.capturedChannels}`);
   for (const warning of report.warnings) console.warn(`Warning: ${warning}`);
   for (const conflict of report.conflicts) console.error(`Conflict: ${conflict}`);
 
   if (report.conflicts.length > 0) {
     process.exitCode = 1;
+    console.error('Registry unchanged: resolve conflicts before capture.');
+  } else {
+    saveManagedIds(registry);
   }
 };
 

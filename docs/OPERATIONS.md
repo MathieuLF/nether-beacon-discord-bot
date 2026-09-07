@@ -1,78 +1,101 @@
 # Self-hosting NetherBeacon
 
-This guide describes a generic owner-controlled installation. It intentionally omits the author's hosts, domains, secret stores, deployment paths and private operating procedures.
+This guide describes a generic installation controlled by its owner. It contains no private deployment procedures.
 
-## Architecture
+## Architecture and requirements
 
-The Compose file runs two isolated services from separate Docker build targets:
+Use Node.js 24 and npm for local validation, plus Docker Engine with Compose v2 for containers. Alpha uses Node 24; the pinned upstream Muse image supplies its own Node runtime. Both services run as UID/GID 10001, with a read-only root filesystem, dropped capabilities and no inbound ports.
 
-- `nether-beacon` handles Discord commands, reconciliation, statistics and bounded integrations;
-- `nether-beacon-muse` runs Muse with its own credential environment and persistent data volume.
+`nether-beacon` runs Alpha. `nether-beacon-muse` is optional and enabled by the Compose profile `music`. Alpha does not wait for Muse. They have separate credential environments; only Muse process health metadata is shared read-only with Alpha.
 
-Neither service needs a public HTTP port. Discord Gateway connections are outbound. Optional upstream integrations should be reachable only through routes explicitly controlled by the operator.
+## Start Alpha locally
 
-The declarative server plan includes dedicated public community channels for Palworld, Pokémon GO, Minecraft and Vault Hunters. Managed channel permissions and topics converge to that plan.
+1. Clone the repository and copy `.env.example` to `.env` (`Copy-Item .env.example .env` in PowerShell, `cp .env.example .env` in a POSIX shell).
+2. Set `DISCORD_BOT_TOKEN` and `DISCORD_GUILD_ID` for a dedicated development application/server. Keep `BOT_PROFILE=minimal` initially. Muse credentials may stay blank.
+3. Invite the application with the `bot` and `applications.commands` scopes. Alpha needs access to its command channels; the minimal and pokemon profiles do not require privileged member/presence intents.
+4. Run:
 
-## Requirements
-
-- Docker Engine with Compose v2;
-- two Discord applications when both administration and music are enabled;
-- a private mechanism for injecting the variables listed in `.env.example`;
-- durable storage for Muse data and the application runtime state.
-
-## Initial setup
-
-```bash
-cp .env.example .env
+```text
 npm ci
-npm run validate:config
-npm test
-docker compose config --quiet
-docker compose up -d --build
+npm run check
+npm run init:local
+docker compose up -d --wait nether-beacon
 docker compose ps
 ```
 
-Use dedicated development credentials for local tests. `docker compose config` may render resolved values and must be run only in a private terminal.
+`init:local` builds the selected images and uses short-lived containers to initialize the ownership of the runtime directory. It does not start either bot. It changes only the mount-root ownership, not all existing files recursively. If old runtime files have a different owner, review their ownership separately after backing them up.
 
-## Profiles
+`BOT_RUNTIME_DIR=./runtime` is the native Node path used by `npm start` and `capture:ids`. Compose explicitly maps the same host directory to `/bot/runtime`. Do not launch native Node and Compose simultaneously with the same token or registry.
 
-- `minimal` is the safe default;
-- `pokemon` adds public Pokédex commands;
-- `full` enables managed reconciliation, statistics, events and staff actions.
+Try `/help` in Discord. `/status` is reserved for administrators. `npm run check` is offline; it does not start a bot. `npm run verify:pokedex` is a separate, optional PokéAPI network check.
 
-Changing profile changes registered Discord commands and must be treated as a deliberate configuration update.
+## Enable music
 
-## Updates
+Fill the `MUSE_*` credentials in `.env`. Muse uses a second Discord application, invited with its own music permissions. Keep `MUSE_DATA_VOLUME` unchanged for an existing installation; its historical default is `example-muse-data`. Choose a distinct volume name for a separate installation. An empty/new volume does not migrate an old database.
 
-1. Review the source revision and dependency changes.
-2. Run `npm ci`, `npm run validate:config` and `npm test`.
-3. Build the candidate images without replacing the running services.
-4. Record the current image digests or IDs for rollback.
-5. Recreate only the two application services.
-6. Wait for both health checks and verify their restart counts and logs.
-7. Restore the previous image if either service fails its health check.
+```text
+npm run init:local -- --music
+docker compose --profile music up -d --wait
+```
 
-The repository does not prescribe a hosting panel, secret manager, path, maintenance window or automation engine. Operators should implement those controls in their private infrastructure repository.
+The initializer labels a new external volume with its Compose project and source directory, checks that ownership, and initializes `/data` and the peer-state directory for UID 10001. It refuses to adopt existing unlabelled/foreign volumes. A historical installation with working permissions does not need initialization: keep its volume name and start the selected service normally. Review and back up any existing volume before changing ownership. Do not run initialization against a live database during an update. `MUSE_YT_DLP_AUTO_UPDATE` is always disabled in the runner; updates arrive through a rebuilt image. `MUSE_CACHE_LIMIT` bounds the upstream music cache.
 
-## Backups
+For later PowerShell restarts including music, set `$env:COMPOSE_PROFILES='music'` before running the restart script. Omitting the profile does not stop an already running Muse service; stop it explicitly by service name if that is the intended change.
 
-Back up the Muse data volume and the non-reconstructible files under `runtime/`. The peer heartbeat state and Pokédex cache are reconstructible. Test restoration into an isolated Compose project before relying on a backup.
+## Enable managed administration
 
-## Security and privacy
+The Alpha profiles are separate from Compose profiles:
 
-- Store secrets outside Git and expose each credential only to the service that needs it.
-- Run as a non-root user, drop Linux capabilities, use a read-only root filesystem and avoid host ports unless a feature explicitly requires one.
-- Preserve the stable-ID registry; ambiguous Discord resources must fail closed.
-- Never log private player identifiers, addresses, coordinates, tokens or raw administrative responses.
-- Restrict staff commands by stable role and channel IDs, not names alone.
+| Alpha profile | Commands and behavior |
+| --- | --- |
+| `minimal` | `/help`, admin `/status`, public `/metrics-palworld` and `/resume-hier` |
+| `pokemon` | Minimal plus `/pokemon`, `/weakness`, `/move`, `/ability`, `/type`, `/random-pokemon` |
+| `full` | All commands, server synchronization at startup, statistics, membership and voice events |
+
+Before choosing `full`, review `config/server-plan.json`: it declares roles, categories, channels, strict permissions and server settings. Enable Server Members Intent and Presence Intent in the Discord developer portal, grant the bot the required management permissions, and place its role above the roles it manages. It does not automatically promote an existing role to Administrator.
+
+On an existing server, stop Alpha before capturing IDs:
+
+```text
+docker compose stop nether-beacon
+npm run capture:ids
+```
+
+Capture reads Discord and writes only the local registry. It refuses conflicts, wrong provenance or missing stored identities without saving partial results. Then set `BOT_PROFILE=full` and start Alpha. A fresh server without any matching managed resources can bootstrap directly. Full startup and `/resync` change declared resources and permissions; `/audit` only reports drift.
+
+Stats from older versions must be captured once before updating their names/permissions. Capture accepts only a unique category/channel with the existing public, read-only Stats policy. If it refuses, inspect the resources and correct the intended registry mapping or policy explicitly; do not delete the entire registry. The former `Stats serveur` name is supported. Legacy time and stats-live channels are never automatically deleted.
+
+Stable IDs survive renames and partial synchronization failures. A missing/wrong-type stored ID stops its reconciliation; a matching name does not replace it. A valid stored channel/category ID remains authoritative if a separate duplicate name exists. A corrupted registry stops reconciliation and must be restored from backup or repaired. Keep only one Alpha process per registry. Bot mutations are queued, and registry saves use a short filesystem lock plus a revision check so a stale capture cannot overwrite newer IDs. A concurrent change fails explicitly: reload and retry after stopping the other writer. If a process crashes while saving, a `managed-ids.json.lock` file may remain; stop all writers, inspect its PID/time, back up the registry, and remove only that stale lock before retrying.
+
+Wholly private categories inherit a private policy from the common child access groups. Mixed/public categories remain neutral, and every managed child receives its own exact policy at creation and when moved. Existing custom topics are preserved and reported, while obsolete managed topics are updated.
+
+## Command behavior
+
+- `/help` lists only enabled commands appropriate to the caller's role. Pokédex keys and upstream card data use English names.
+- `/metrics-palworld` is public and has a global cooldown (four minutes by default). Missing, old or failed source data is marked incomplete; absent measurements do not become zero.
+- `/resume-hier` is public in the configured Palworld channel(s). It distinguishes an accessible page from confirmed index data and unavailable content.
+- `/announce-palworld` requires a managed Admin/Mod role ID or Discord Administrator, an allowed channel, a cooldown and separately configured REST credentials. Explicit channel IDs take precedence over names; ambiguous names authorize no channel. A lost POST response is not retried automatically: verify in game before sending it again.
+- Private voice channel names and hidden sides of transitions never enter public event logs.
+- `/stats-refresh` reports failed writes. A `~` before member counts means the cache is incomplete. Presence remains Discord's observable status, not proof that a person is physically online.
+
+## Updates and rollback
+
+Back up `runtime/managed-ids.json` and Muse data first. Record current image IDs/digests for rollback. Validate with `npm ci` and `npm run check`, then build candidates before replacing the selected services.
+
+The local PowerShell helper `.\scripts\rebuild-restart.ps1` checks Compose project and source-directory ownership, builds, rechecks ownership, sends a maintenance notice when a log channel is known, and recreates only the selected services. It refuses unknown/foreign containers and never stops or removes them. Choose the correct Docker context/project instead of deleting a conflicting instance. It does not implement deployment backups or rollback; those belong in the operator's private controls.
+
+Container names are now generated by Compose; service names are unchanged. When upgrading from fixed names, verify existing project/source labels before recreating the same services. Update any private monitor that addressed the old fixed container name. The historical Muse volume and `./runtime` binding are preserved.
+
+Both base images are pinned by digest. `config/muse-package.json` and `config/muse-yarn.lock` lock the upstream dependencies plus the explicit security resolutions. When updating Muse, review and regenerate these together against the selected base; the image uses `--frozen-lockfile`. OS packages still receive repository security updates during builds, so retain built image digests for exact rollback.
 
 ## Health and troubleshooting
 
-```bash
+```text
 docker compose ps
 docker compose logs --tail=200 nether-beacon
-docker compose logs --tail=200 nether-beacon-muse
-npm run verify:pokedex
+docker compose --profile music logs --tail=200 nether-beacon-muse
 ```
 
-Use `/audit` before `/resync`. A resync can create missing managed resources and remove undeclared permissions from resources already under management; it is not a harmless health probe.
+Alpha health requires initialization, a ready Discord Gateway and a recent heartbeat. Command errors remain in diagnostics but do not permanently poison connection health. Bravo's check proves only a recent running process; verify its Discord presence and audio playback separately. A process heartbeat does not establish that a music session works.
+
+Back up non-reconstructible runtime identifiers and Muse data; peer heartbeats and Pokédex caches are reconstructible. Test restores in an isolated project. Keep secrets, player identifiers and operational topology out of Git and public logs.

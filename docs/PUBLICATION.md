@@ -27,9 +27,7 @@ Those facts belong in the operator's private infrastructure documentation.
 
 ```bash
 npm ci
-npm run validate:config
-npm test
-bash scripts/build-public-site.sh
+npm run check
 ```
 
 `npm run verify:pokedex` is an optional network test. `docker compose config --quiet` and `docker compose build` are useful private preflight checks when Docker is available.
@@ -39,7 +37,9 @@ bash scripts/build-public-site.sh
 The public presentation source lives under `docs/site/`. Build a deployable directory without assuming a particular host or platform:
 
 ```bash
-bash scripts/build-public-site.sh
+npm run build:site
 ```
 
 Publishing the resulting directory is a separate, operator-authorized action.
+
+Command cards are generated from `lib/commands.js`. After changing commands, run `node scripts/generate-command-docs.js`; the build refuses stale cards. The shell-only static assembler remains available for existing hosts.

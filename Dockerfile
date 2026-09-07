@@ -1,5 +1,5 @@
-ARG ALPHA_NODE_IMAGE=node:24-alpine
-ARG MUSE_IMAGE=ghcr.io/museofficial/muse:2.11.7
+ARG ALPHA_NODE_IMAGE=node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf
+ARG MUSE_IMAGE=ghcr.io/museofficial/muse:2.11.7@sha256:441024557b543e5f693c2825811320f771fec7357fc40c5518a54c2da1e1c65c
 
 FROM ${ALPHA_NODE_IMAGE} AS alpha
 
@@ -25,23 +25,22 @@ FROM ${MUSE_IMAGE} AS muse
 USER root
 WORKDIR /usr/app
 
-RUN node -e "const fs=require('fs'); const pkg=JSON.parse(fs.readFileSync('package.json','utf8')); pkg.resolutions=Object.assign({}, pkg.resolutions || {}, {'form-data':'4.0.6', tar:'7.5.19', esbuild:'0.25.7'}); fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');" && \
-    yarn install --production --ignore-scripts --non-interactive && \
+COPY config/muse-package.json ./package.json
+COPY config/muse-yarn.lock ./yarn.lock
+RUN yarn install --frozen-lockfile --production --ignore-scripts --non-interactive && \
     yarn cache clean && \
     npm install -g npm@12.0.2 && \
     npm cache clean --force
 
 WORKDIR /bot
 
-COPY package.json package-lock.json ./
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y upgrade && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tini && \
-    rm -rf /var/lib/apt/lists/* && \
-    npm ci --omit=dev && \
-    npm cache clean --force
+    rm -rf /var/lib/apt/lists/*
 
-COPY --chown=10001:10001 . /bot
+COPY --chown=10001:10001 muse-runner.js muse-healthcheck.js /bot/
+COPY --chown=10001:10001 lib/muse-env.js lib/service-health.js lib/atomic-json.js /bot/lib/
 
 RUN if ! getent group 10001 >/dev/null; then groupadd --gid 10001 netherbeacon; fi && \
     if ! getent passwd 10001 >/dev/null; then useradd --uid 10001 --gid 10001 --home-dir /bot --shell /usr/sbin/nologin netherbeacon; fi && \

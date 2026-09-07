@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "strictNullChecks": true,
+    "skipLibCheck": true,
+    "target": "ES2023",
+    "module": "Node16",
+    "types": ["node"]
+  },
+  "include": ["lib/voice-events.js", "lib/service-health.js", "lib/metrics.js"]
+}

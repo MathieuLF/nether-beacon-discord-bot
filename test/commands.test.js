@@ -47,12 +47,13 @@ test('command hash is stable and command diff reports missing and extra names', 
 test('runtime profiles expose only their approved commands', () => {
   assert.deepEqual(
     commandPayloadForProfile('minimal').map((command) => command.name),
-    ['status', 'metrics-palworld', 'resume-hier'],
+    ['status', 'help', 'metrics-palworld', 'resume-hier'],
   );
   assert.deepEqual(
     commandPayloadForProfile('pokemon').map((command) => command.name),
     [
       'status',
+      'help',
       'pokemon',
       'weakness',
       'move',

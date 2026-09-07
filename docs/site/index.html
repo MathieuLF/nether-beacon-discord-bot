@@ -1,172 +1,124 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr-CA">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="NetherBeacon is a self-hosted Discord bot stack for gaming communities: admin automation, Muse music, live stats, Palworld REST commands, diagnostics and Pokédex commands.">
-    <meta name="theme-color" content="#ff7a2f">
-    <title>NetherBeacon - Discord bot stack</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+    <meta name="description" content="NetherBeacon : un bot Discord autohébergé pour gérer une communauté, consulter Palworld et le Pokédex, avec la musique Muse en option.">
+    <meta name="theme-color" content="#10131a">
+    <title>NetherBeacon — bots Discord pour une communauté de joueurs</title>
     <script async src="https://analytics.nethercore.dev/count.v5.js"
       data-goatcounter="https://analytics.nethercore.dev/count"
       data-goatcounter-settings='{"path":"beacon.nethercore.dev/","title":"beacon.nethercore.dev/","referrer":"","no_events":true}'
       crossorigin="anonymous"
       integrity="sha384-atnOLvQb9t+jTSipvd75X2yginT4PjVbqDdlJAmxMm+wYElFmeR6EmLP5bYeoRVQ"></script>
-    <link rel="stylesheet" href="assets/site.css">
+    <link rel="stylesheet" href="assets/site.css?v=4853e9fa9eaa">
   </head>
   <body>
+    <a class="skip-link" href="#main">Aller au contenu</a>
     <header class="hero">
       <div class="shell">
-        <nav class="nav" aria-label="Main navigation">
-          <div class="brand">
-            <span class="beacon" aria-hidden="true">🔥</span>
-            <span>NetherBeacon</span>
-          </div>
+        <nav class="nav" aria-label="Navigation principale">
+          <a class="brand" href="#main"><span class="beacon" aria-hidden="true">🔥</span><span>NetherBeacon</span></a>
           <div class="links">
-            <a class="pill" href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/OPERATIONS.md">Operations</a>
-            <a class="pill" href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/PUBLICATION.md">Publication</a>
-            <a class="pill" href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/ASSETS.md">Assets</a>
-            <a class="pill" href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/LEGAL.md">Legal</a>
+            <a class="pill" href="#features">Fonctions</a>
+            <a class="pill" href="#commands">Commandes</a>
+            <a class="pill" href="#quickstart">Installation</a>
+            <a class="pill" href="https://github.com/MathieuLF/nether-beacon-discord-bot">Code source</a>
           </div>
         </nav>
-
         <div class="hero-grid">
           <div>
-            <div class="eyebrow">Self-hosted Discord stack</div>
-            <h1>One beacon for gamers, music, stats and safe diagnostics.</h1>
-            <p class="lede">
-              NetherBeacon keeps Alpha on server operations, public commands and Palworld REST, while Bravo runs Muse in an isolated Docker Compose service with its own credentials.
-            </p>
+            <div class="eyebrow">Bots Discord autohébergés</div>
+            <h1>Un repère pour les joueurs, la musique et la vie du serveur.</h1>
+            <p class="lede">Alpha répond aux commandes et, si tu l’actives, gère la structure et les statistiques du serveur. Bravo ajoute la musique avec Muse, dans un service séparé.</p>
             <div class="actions">
-              <a class="button" href="#quickstart">Start setup</a>
-              <a class="button secondary" href="#commands">View commands</a>
-              <a class="button secondary" href="https://discord.gg/2ghwj8B7Vd" target="_blank" rel="noopener noreferrer">Join Discord</a>
+              <a class="button" href="#quickstart">Installer le bot</a>
+              <a class="button secondary" href="#commands">Voir les commandes</a>
+              <a class="button secondary" href="https://discord.gg/2ghwj8B7Vd" target="_blank" rel="noopener noreferrer">Rejoindre Discord <span class="sr-only">(nouvel onglet)</span></a>
             </div>
           </div>
-
-          <aside class="status-card" aria-label="Runtime preview">
-            <pre class="terminal"><span class="cursor">●</span> Alpha online
-resources   non-destructive
-permissions strict, ID-bound
-music       upstream Muse
-stats       debounced voice KPIs
-palworld   REST commands
-pokedex     autocomplete + cache
-diagnostics ephemeral, no secrets
-public URL  optional</pre>
+          <aside class="status-card" aria-labelledby="preview-title">
+            <h2 id="preview-title">Exemple de fonctionnement</h2>
+            <p>Cette présentation ne mesure pas l’état d’une installation.</p>
+            <pre class="terminal" tabindex="0" role="region" aria-label="Exemple de fonctions, défilement horizontal possible"><span class="cursor" aria-hidden="true">●</span> Alpha + Bravo
+ressources  identifiants enregistrés
+permissions appliquées à la création
+musique     Muse, service facultatif
+stats       rafraîchies et regroupées
+palworld    données publiques filtrées
+pokédex     suggestions + cache
+diagnostics réponses privées</pre>
           </aside>
         </div>
       </div>
     </header>
-
-    <main>
-      <section class="section">
+    <main id="main" tabindex="-1">
+      <section class="section" id="features" aria-labelledby="features-title">
         <div class="shell">
-          <h2>Designed for a small live server</h2>
-          <p class="section-intro">
-            The bot is intentionally cautious. It creates missing managed resources, reuses known Discord IDs, and reports ambiguous duplicates instead of deleting or guessing.
-          </p>
+          <h2 id="features-title">Selon les besoins de ta communauté</h2>
+          <p class="section-intro">Le profil <code>minimal</code> active l’aide et Palworld. <code>pokemon</code> ajoute le Pokédex. Le profil <code>full</code> active aussi l’administration du serveur selon un plan que tu dois vérifier.</p>
           <div class="grid">
-            <article class="card">
-              <h3>Safe server sync</h3>
-              <p><strong>Alpha</strong> reuses managed IDs, creates missing resources without deleting channels or roles, and enforces the declared managed permissions exactly.</p>
-            </article>
-            <article class="card">
-              <h3>Music under one roof</h3>
-              <p><strong>Bravo</strong> runs upstream Muse in its own service with a dedicated credential environment and the historical Docker volume mounted at <code>/data</code>.</p>
-            </article>
-            <article class="card">
-              <h3>Public fun commands</h3>
-              <p>Pokédex commands use autocomplete, local JSON caching, request deduplication and cached Pokémon artwork.</p>
-            </article>
-            <article class="card">
-              <h3>Community channels</h3>
-              <p>Dedicated public spaces keep Palworld, Pokémon GO, Minecraft and Vault Hunters conversations easy to find without mixing them into the main chat.</p>
-            </article>
-            <article class="card">
-              <h3>Palworld metrics</h3>
-              <p>Alpha reads server metrics on demand and posts public snapshots with a global cooldown.</p>
-            </article>
-            <article class="card">
-              <h3>Palworld announcements</h3>
-              <p>Staff can post a Discord announcement and relay the same message in game without exposing REST credentials.</p>
-            </article>
-            <article class="card">
-              <h3>Safe diagnostics</h3>
-              <p>Admin-only diagnostics expose runtime health, command hashes and cache metadata without printing secrets or file contents.</p>
-            </article>
+            <article class="card"><h3>Gestion du serveur</h3><p>Audit, rôles, salons et permissions. Alpha réutilise les identifiants enregistrés et signale les conflits. Aucune suppression automatique de salon ou de rôle.</p></article>
+            <article class="card"><h3>Musique avec Muse</h3><p>Bravo utilise ses propres identifiants et son volume de données. Le profil Compose <code>music</code> est facultatif et indépendant du profil d’Alpha.</p></article>
+            <article class="card"><h3>Pokédex</h3><p>Fiches illustrées, talents, capacités et types avec suggestions. Les recherches et les données PokéAPI utilisent les noms anglais, comme <code>charizard</code>.</p></article>
+            <article class="card"><h3>Vie de la communauté</h3><p>Des espaces pour Palworld, Pokémon GO, Minecraft et Vault Hunters. Les événements vocaux publics respectent la confidentialité des salons privés.</p></article>
+            <article class="card"><h3>Palworld</h3><p>Statut et récapitulatif accessibles aux membres. Les mesures absentes, anciennes ou incomplètes sont signalées. Les annonces en jeu sont réservées au staff.</p></article>
+            <article class="card"><h3>Statistiques et diagnostics</h3><p>Compteurs vocaux en lecture seule. Les comptes précédés de <code>~</code> indiquent un cache incomplet. Les détails techniques sont réservés aux administrateurs.</p></article>
           </div>
         </div>
       </section>
-
-      <section class="section" id="commands">
+      <section class="section" id="commands" aria-labelledby="commands-title">
         <div class="shell">
-          <h2>Commands</h2>
-          <p class="section-intro">Admin commands stay locked down. Palworld metrics and Pokédex commands are public, rate-limited and safe by default.</p>
+          <h2 id="commands-title">Trouver la bonne commande</h2>
+          <p class="section-intro">Commence par <code>/help</code> dans Discord : l’aide tient compte du profil et de ton rôle. Les commandes sont limitées au serveur configuré.</p>
           <div class="commands">
-            <div class="command"><code>/status</code><br>Show Alpha, Bravo, runtime and cache status.</div>
-            <div class="command"><code>/audit</code><br>Compare desired server structure without changing anything.</div>
-            <div class="command"><code>/resync</code><br>Create missing resources and enforce managed Discord permissions.</div>
-            <div class="command"><code>/stats-refresh</code><br>Force the Stats voice channels to refresh.</div>
-            <div class="command"><code>/diag</code><br>Show safe Alpha, Bravo, stats and command diagnostics.</div>
-            <div class="command"><code>/cache-status</code><br>Report local cache size and age without file contents.</div>
-            <div class="command"><code>/metrics-palworld</code><br>Show filtered Gaylemon Palworld status with a global 4-minute cooldown.</div>
-            <div class="command"><code>/announce-palworld message:...</code><br>Let admins and moderators post to Discord and relay the announcement in game.</div>
-            <div class="command"><code>/pokemon name:charizard</code><br>Return an autocomplete-backed Pokédex card with artwork.</div>
-            <div class="command"><code>/weakness pokemon:charizard</code><br>Show weaknesses, resistances and immunities.</div>
-            <div class="command"><code>/move name:flamethrower</code><br>Look up a move.</div>
-            <div class="command"><code>/ability name:intimidate</code><br>Look up an ability and sample Pokémon.</div>
-            <div class="command"><code>/type name:fire</code><br>Show offensive and defensive type matchups.</div>
-            <div class="command"><code>/random-pokemon</code><br>Pull a random Pokémon.</div>
+<!-- commands:start -->
+            <article class="command"><h3><code>/status</code></h3><p>État du conteneur, du bot admin et de Muse.</p><p class="command-access">Administrateurs · minimal, pokemon, full</p></article>
+            <article class="command"><h3><code>/audit</code></h3><p>Compare la configuration voulue à l&#39;état actuel sans rien modifier.</p><p class="command-access">Administrateurs · full</p></article>
+            <article class="command"><h3><code>/resync</code></h3><p>Applique la structure gérée et ses permissions strictes.</p><p class="command-access">Administrateurs · full</p></article>
+            <article class="command"><h3><code>/help</code></h3><p>Affiche les commandes du profil accessibles avec ton rôle.</p><p class="command-access">Tous les membres · minimal, pokemon, full</p></article>
+            <article class="command"><h3><code>/welcome-preview</code></h3><p>Prévisualise le message d&#39;accueil sans attendre un nouveau membre.</p><p class="command-access">Administrateurs · full</p></article>
+            <article class="command"><h3><code>/stats-refresh</code></h3><p>Force une mise à jour immédiate des salons vocaux Stats.</p><p class="command-access">Administrateurs · full</p></article>
+            <article class="command"><h3><code>/diag</code></h3><p>Affiche un diagnostic runtime sans secrets.</p><p class="command-access">Administrateurs · full</p></article>
+            <article class="command"><h3><code>/cache-status</code></h3><p>Affiche la taille et l’âge des caches locaux sans secrets.</p><p class="command-access">Administrateurs · full</p></article>
+            <article class="command"><h3><code>/announce-palworld</code></h3><p>Publie une annonce Discord et la relaie dans le serveur Palworld.</p><p class="command-access">Administrateurs et modérateurs · full</p></article>
+            <article class="command"><h3><code>/pokemon</code></h3><p>Cherche un Pokémon par nom anglais ou numéro du Pokédex.</p><p class="command-access">Tous les membres · pokemon, full</p></article>
+            <article class="command"><h3><code>/weakness</code></h3><p>Affiche les faiblesses, résistances et immunités d’un Pokémon.</p><p class="command-access">Tous les membres · pokemon, full</p></article>
+            <article class="command"><h3><code>/move</code></h3><p>Cherche une capacité Pokémon par son nom anglais.</p><p class="command-access">Tous les membres · pokemon, full</p></article>
+            <article class="command"><h3><code>/ability</code></h3><p>Cherche un talent Pokémon par son nom anglais.</p><p class="command-access">Tous les membres · pokemon, full</p></article>
+            <article class="command"><h3><code>/type</code></h3><p>Affiche les forces et faiblesses d’un type Pokémon.</p><p class="command-access">Tous les membres · pokemon, full</p></article>
+            <article class="command"><h3><code>/random-pokemon</code></h3><p>Affiche un Pokémon au hasard.</p><p class="command-access">Tous les membres · pokemon, full</p></article>
+            <article class="command"><h3><code>/metrics-palworld</code></h3><p>Affiche les derniers metrics du serveur Palworld.</p><p class="command-access">Tous les membres · minimal, pokemon, full</p></article>
+            <article class="command"><h3><code>/resume-hier</code></h3><p>Renvoie le lien du résumé Gaylemon de la veille.</p><p class="command-access">Tous les membres · minimal, pokemon, full</p></article>
+<!-- commands:end -->
           </div>
         </div>
       </section>
-
-      <section class="section" id="quickstart">
+      <section class="section" id="quickstart" aria-labelledby="quickstart-title">
         <div class="shell">
-          <h2>Quick start</h2>
-          <div class="timeline">
-            <div class="step">
-              <div>
-                <strong>Prepare secrets locally.</strong><br>
-                Copy <code>.env.example</code> to <code>.env</code> and fill Discord, YouTube and Spotify values. Never commit <code>.env</code>.
-              </div>
-            </div>
-            <div class="step">
-              <div>
-                <strong>Capture Discord IDs.</strong><br>
-                Run <code>npm run capture:ids</code> so managed resources are reused by ID.
-              </div>
-            </div>
-            <div class="step">
-              <div>
-                <strong>Enable Palworld REST.</strong><br>
-                Public metrics use the filtered Gaylemon JSON by default. Set the Palworld REST admin variables only for staff in-game announcements.
-              </div>
-            </div>
-            <div class="step">
-              <div>
-                <strong>Build and restart with notice.</strong><br>
-                Run <code>.\scripts\rebuild-restart.ps1</code>. Alpha posts an orange maintenance message first.
-              </div>
-            </div>
-          </div>
+          <h2 id="quickstart-title">Démarrer en local</h2>
+          <p class="section-intro">Prévois Node.js 24, npm et Docker Compose v2. Commence avec une application Discord de développement. Muse demande une seconde application seulement si tu actives la musique.</p>
+          <ol class="timeline" role="list">
+            <li class="step"><div><strong>Préparer la configuration.</strong><p>Récupère le dépôt, copie <code>.env.example</code> vers <code>.env</code>, puis renseigne le jeton d’Alpha et l’identifiant du serveur. Garde <code>BOT_PROFILE=minimal</code> pour commencer.</p></div></li>
+            <li class="step"><div><strong>Installer et vérifier.</strong><p>Lance <code>npm ci</code>, puis <code>npm run check</code>. Ces vérifications ne connectent pas le bot à Discord.</p></div></li>
+            <li class="step"><div><strong>Initialiser les dossiers et démarrer Alpha.</strong><p>Lance <code>npm run init:local</code>, puis <code>docker compose up -d --wait nether-beacon</code>. Dans Discord, essaie <code>/help</code>.</p></div></li>
+            <li class="step"><div><strong>Activer les fonctions supplémentaires.</strong><p>Pour <code>full</code>, vérifie le plan du serveur et les intents Discord, puis capture les identifiants des ressources existantes. Pour Muse, configure ses identifiants et initialise son volume. Le guide décrit ces deux parcours séparément.</p></div></li>
+          </ol>
           <div class="actions">
-            <button class="button secondary" type="button" data-copy=".\scripts\rebuild-restart.ps1">Copy restart command</button>
+            <a class="button" href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/OPERATIONS.md">Lire le guide d’installation</a>
+            <button class="button secondary" type="button" data-copy="npm run init:local">Copier la commande d’initialisation</button>
           </div>
+          <p data-copy-status role="status" aria-live="polite" aria-atomic="true"></p>
         </div>
       </section>
     </main>
-
     <footer class="footer">
       <div class="shell">
-        <p>© <span data-year></span> NetherBeacon contributors. Self-hosted, MIT licensed.</p>
-        <p>Public repository content must exclude tokens, runtime state and Muse data.</p>
-        <p>Independent project. No official ties to Discord, Docker, GitHub, Nintendo, Creatures, GAME FREAK, The Pokémon Company, Pocketpair, Palworld, Spotify, YouTube, Muse or PokéAPI.</p>
-        <p><a href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/LICENSE">License</a> · <a href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/NOTICE.md">Notices</a> · <a href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/LEGAL.md">Legal notes</a></p>
+        <p>© <span data-year></span> Les contributeurs de NetherBeacon. Projet indépendant, sous licence MIT.</p>
+        <p>Aucune affiliation officielle avec Discord, Pokémon, Palworld, Spotify, YouTube, Muse ou PokéAPI.</p>
+        <p><a href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/LICENSE">Licence</a> · <a href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/NOTICE.md">Attributions</a> · <a href="https://github.com/MathieuLF/nether-beacon-discord-bot/blob/main/docs/LEGAL.md">Mentions légales</a></p>
       </div>
     </footer>
-
-    <script src="assets/site.js"></script>
+    <script src="assets/site.js?v=78aabf598d58"></script>
   </body>
 </html>

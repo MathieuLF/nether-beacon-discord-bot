@@ -1,9 +1,7 @@
 const fs = require('fs');
 const {
   Client,
-  ChannelType,
   GatewayIntentBits,
-  PermissionFlagsBits,
 } = require('discord.js');
 const { config } = require('dotenv');
 config();
@@ -13,34 +11,29 @@ const env = validateBotEnvironment(process.env);
 const { paths } = require('./lib/config');
 const {
   createCooldown,
+  resolveAllowedChannels,
+  defaultMemberRole,
   hasAdminAccess: interactionHasAdminAccess,
   hasStaffAccess: interactionHasStaffAccess,
 } = require('./lib/access-control');
 const {
-  POKEDEX_COMMAND_NAMES,
-  STAFF_COMMAND_NAMES,
   commandPayloadForProfile,
   commandPayloadHash,
 } = require('./lib/commands');
 const {
-  formatCacheStatus,
-  formatDiagnostics,
-} = require('./lib/diagnostics');
-const {
   plan,
   auditGuild,
   syncGuild,
-  formatReportForChat,
   findManagedChannelIdByName,
   findManagedLogChannelId,
 } = require('./lib/reconcile');
-const { loadManagedIds } = require('./lib/managed-ids');
+const { loadManagedIds, assertRegistryIdentity } = require('./lib/managed-ids');
 const {
   createAdminState,
   readJson,
   updateRuntimeFiles: writeRuntimeFiles,
 } = require('./lib/runtime-state');
-const { createStatsRefreshDebouncer } = require('./lib/stats-debounce');
+const { createStatsManager } = require('./lib/stats');
 const {
   createPalworldRestClient,
   formatPalworldAnnouncementForDiscord,
@@ -59,7 +52,6 @@ const {
   inspectSummaryAvailability,
 } = require('./lib/daily-summary');
 const {
-  autocompletePokedex,
   formatAbilitySummary,
   formatMoveSummary,
   formatPokemonSummary,
@@ -67,10 +59,10 @@ const {
   formatTypeSummary,
   formatWeaknessSummary,
 } = require('./lib/pokedex');
-const {
-  normalizeDiscordReplyPayload,
-  normalizePokedexFallbackPayload,
-} = require('./lib/pokedex-reply');
+const { acknowledgeInteraction, replyToInteraction } = require('./lib/interaction-response');
+const { createInteractionHandler } = require('./lib/interaction-router');
+const { publicVoiceTransition } = require('./lib/voice-events');
+const { museProcessState } = require('./lib/service-health');
 const pkg = require('./package.json');
 
 const BOT_TOKEN = env.DISCORD_BOT_TOKEN;
@@ -84,17 +76,11 @@ const commandHash = commandPayloadHash(commandPayload);
 
 fs.mkdirSync(paths.runtimeDir, { recursive: true });
 
-const P = PermissionFlagsBits;
 const ADMIN_ROLE_NAME = plan.adminRoleName;
 const DEFAULT_MEMBER_ROLE_NAME = plan.defaultMemberRoleName;
 const WELCOME_CHANNEL_NAME = plan.welcomeChannelName;
-const STATS_CATEGORY_NAME = 'Stats';
-const STATS_CATEGORY_LEGACY_NAMES = ['Stats serveur'];
-const STATS_LIVE_CHANNEL_NAME = '📊・stats-live';
-const STATS_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-const STATS_VOICE_REFRESH_INTERVAL_MS = env.BOT_STATS_VOICE_REFRESH_INTERVAL_MS || STATS_REFRESH_INTERVAL_MS;
 const STATS_EVENT_DEBOUNCE_MS = env.BOT_STATS_EVENT_DEBOUNCE_MS;
-const STATS_MEMBER_FETCH_TIMEOUT_MS = 10000;
+const STATS_VOICE_REFRESH_INTERVAL_MS = env.BOT_STATS_VOICE_REFRESH_INTERVAL_MS;
 const PALWORLD_CHANNEL_NAME = env.BOT_PALWORLD_CHANNEL_NAME;
 const dailySummarySettings = createDailySummarySettings(
   {
@@ -118,18 +104,6 @@ const PALWORLD_ADMIN_CHANNEL_NAMES = env.BOT_PALWORLD_ADMIN_CHANNEL_NAMES.length
   ? env.BOT_PALWORLD_ADMIN_CHANNEL_NAMES
   : [PALWORLD_CHANNEL_NAME];
 const MOD_ROLE_NAME = 'Mod';
-const STATS_CHANNEL_PREFIXES = {
-  date: '📅・',
-  online: '🟢・',
-  idle: '🌙・',
-  dnd: '⛔・',
-  offline: '🔴・',
-  voice: '🎙️・',
-  users: '👥・',
-  bots: '🤖・',
-  channels: '#️⃣・',
-  roles: '🎭・',
-};
 const PUBLIC_COMMAND_COOLDOWN_MS = 5000;
 const publicCommandCooldown = createCooldown({ durationMs: PUBLIC_COMMAND_COOLDOWN_MS });
 const pokedexGlobalCooldown = createCooldown({ durationMs: env.BOT_POKEAPI_GLOBAL_COOLDOWN_MS });
@@ -161,10 +135,6 @@ const formatBotMessage = (title, lines = []) => [
 
 const formatCommandList = (commands) => commands.map((command) => `\`${command}\``).join(' ');
 
-const toPermissionBits = (permissions) => permissions.reduce((bits, permission) => bits | BigInt(permission), 0n);
-const STATS_EVERYONE_ALLOW_BITS = toPermissionBits([P.ViewChannel]);
-const STATS_EVERYONE_DENY_BITS = toPermissionBits([P.Connect, P.Speak, P.UseVAD, P.Stream]);
-
 const formatTimestamp = (value) => {
   if (!value) return 'jamais';
   const date = new Date(value);
@@ -177,67 +147,17 @@ const formatTimestamp = (value) => {
   }).format(date)} (${BOT_TIMEZONE})`;
 };
 
-const formatStatsDate = (value = new Date()) =>
-  new Intl.DateTimeFormat('fr-CA', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    timeZone: BOT_TIMEZONE,
-  }).format(value);
-
-const getStatsPermissionOverwrites = (guild) => [
-  {
-    id: guild.roles.everyone.id,
-    allow: STATS_EVERYONE_ALLOW_BITS,
-    deny: STATS_EVERYONE_DENY_BITS,
-  },
-];
-
-const hasManagedStatsOverwrites = (channel, guild) => {
-  if (channel.permissionOverwrites.cache.size !== 1) return false;
-  const everyoneOverwrite = channel.permissionOverwrites.cache.get(guild.roles.everyone.id);
-  if (!everyoneOverwrite) return false;
-
-  return (
-    everyoneOverwrite.allow.bitfield === STATS_EVERYONE_ALLOW_BITS &&
-    everyoneOverwrite.deny.bitfield === STATS_EVERYONE_DENY_BITS
-  );
-};
-
-const ensureManagedStatsOverwrites = async (channel, guild, reason) => {
-  if (hasManagedStatsOverwrites(channel, guild)) return;
-  await tryDiscordWrite(channel.permissionOverwrites.set(getStatsPermissionOverwrites(guild), reason), reason);
-};
-
 const state = createAdminState({
   version: pkg.version,
   guildId: GUILD_ID,
 });
 
-const withTimeout = async (promise, timeoutMs, label) => {
-  let timer = null;
-  try {
-    return await Promise.race([
-      promise,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
+let stopping = false;
+const updateRuntimeFiles = () => {
+  state.gatewayReady = !stopping && client.isReady();
+  state.healthy = Boolean(state.readyAt && state.gatewayReady);
+  writeRuntimeFiles(state);
 };
-
-const tryDiscordWrite = async (promise, label) => {
-  try {
-    return await promise;
-  } catch (error) {
-    console.warn(`${label}: ${error.message}`);
-    return null;
-  }
-};
-
-const updateRuntimeFiles = () => writeRuntimeFiles(state);
 
 const startHeartbeat = () => {
   updateRuntimeFiles();
@@ -256,7 +176,7 @@ if (FULL_PROFILE_ENABLED) {
 const client = new Client({ intents: gatewayIntents });
 
 const getManagedRoleIds = () => {
-  const registry = loadManagedIds();
+  const registry = assertRegistryIdentity(loadManagedIds(), GUILD_ID, plan);
   if (registry.guildId !== GUILD_ID) {
     return { adminRoleId: null, modRoleId: null };
   }
@@ -269,7 +189,7 @@ const getManagedRoleIds = () => {
 const readServiceState = () => ({
   children: {
     admin: { running: state.healthy },
-    muse: readJson(paths.museStatePath),
+    muse: museProcessState(readJson(paths.museStatePath)),
   },
 });
 
@@ -350,85 +270,22 @@ const sendMessageToChannel = async (guild, channelId, message, options = {}) => 
 const sendLog = async (guild, message) => sendMessageToChannel(guild, getLogChannelId(guild), message);
 const sendEventLog = async (guild, message) => sendMessageToChannel(guild, getEventChannelId(guild), message);
 
-const normalizeSummaryChannelName = (value) =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .replace(/[^\p{Letter}\p{Number}]+/gu, '')
-    .toLocaleLowerCase('fr-CA');
-
-const isSendableTextChannel = (channel) =>
-  channel?.isTextBased?.() && typeof channel.send === 'function';
-
-const resolveDailySummaryChannels = async (guild) => {
-  const ids = dailySummarySettings.commandChannelIds;
-  const names = dailySummarySettings.commandChannelNames;
-  const normalizedNames = new Set(names.map(normalizeSummaryChannelName).filter(Boolean));
-  const channels = new Map();
-
-  await guild.channels.fetch().catch(() => undefined);
-
-  for (const id of ids) {
-    const channel = await guild.channels.fetch(id).catch(() => null);
-    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
-  }
-
-  for (const name of names) {
-    const managedId = findManagedChannelIdByName(guild, name);
-    if (!managedId) continue;
-
-    const channel = await guild.channels.fetch(managedId).catch(() => null);
-    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
-  }
-
-  for (const channel of guild.channels.cache.values()) {
-    if (!isSendableTextChannel(channel)) continue;
-    if (normalizedNames.has(normalizeSummaryChannelName(channel.name))) {
-      channels.set(channel.id, channel);
-    }
-  }
-
-  return [...channels.values()];
-};
-
-const resolvePalworldAdminChannels = async (guild) => {
-  const normalizedNames = new Set(PALWORLD_ADMIN_CHANNEL_NAMES.map(normalizeSummaryChannelName).filter(Boolean));
-  const channels = new Map();
-
-  await guild.channels.fetch().catch(() => undefined);
-
-  for (const id of PALWORLD_ADMIN_CHANNEL_IDS) {
-    const channel = await guild.channels.fetch(id).catch(() => null);
-    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
-  }
-
-  for (const name of PALWORLD_ADMIN_CHANNEL_NAMES) {
-    const managedId = findManagedChannelIdByName(guild, name);
-    if (!managedId) continue;
-
-    const channel = await guild.channels.fetch(managedId).catch(() => null);
-    if (isSendableTextChannel(channel)) channels.set(channel.id, channel);
-  }
-
-  for (const channel of guild.channels.cache.values()) {
-    if (!isSendableTextChannel(channel)) continue;
-    if (normalizedNames.has(normalizeSummaryChannelName(channel.name))) {
-      channels.set(channel.id, channel);
-    }
-  }
-
-  return [...channels.values()];
-};
+const resolveDailySummaryChannels = (guild) => resolveAllowedChannels(guild, {
+  channelIds: dailySummarySettings.commandChannelIds, channelNames: dailySummarySettings.commandChannelNames,
+});
+const resolvePalworldAdminChannels = (guild) => resolveAllowedChannels(guild, {
+  channelIds: PALWORLD_ADMIN_CHANNEL_IDS, channelNames: PALWORLD_ADMIN_CHANNEL_NAMES,
+});
 
 const handleDailySummaryCommand = async (interaction, guild) => {
-  const allowedChannels = await resolveDailySummaryChannels(guild);
+  const allowedChannels = resolveDailySummaryChannels(guild);
   const isAllowed = allowedChannels.some((channel) => channel.id === interaction.channelId);
 
   if (!isAllowed) {
     const channelList = allowedChannels.length
       ? allowedChannels.map((channel) => `<#${channel.id}>`).join(', ')
       : dailySummarySettings.commandChannelNames.map((name) => `#${name}`).join(', ');
-    await interaction.reply({
+    await replyToInteraction(interaction, {
       content: formatBotMessage('📊 Résumé Gaylemon', [
         `Utilise cette commande dans ${channelList || 'le salon Palworld configuré'}.`,
       ]),
@@ -437,7 +294,7 @@ const handleDailySummaryCommand = async (interaction, guild) => {
     return;
   }
 
-  await interaction.deferReply();
+  await acknowledgeInteraction(interaction, { ephemeral: false });
   const dateKey = getPreviousLocalDateKey(new Date(), dailySummarySettings.timeZone);
   const availability = await inspectSummaryAvailability(dailySummarySettings, dateKey);
   await interaction.editReply(buildDailySummaryMessage(dailySummarySettings, dateKey, availability));
@@ -480,20 +337,16 @@ const sendWelcomeMessage = async (member) => {
 const assignDefaultMemberRole = async (member) => {
   if (member.user?.bot) return;
 
-  const matches = member.guild.roles.cache.filter((role) => role.name === DEFAULT_MEMBER_ROLE_NAME);
-  if (matches.size !== 1) {
-    await sendLog(
-      member.guild,
-      formatBotMessage("⚠️ Rôle d'arrivée ignoré", [
-        formatLine('Membre', formatMember(member)),
-        formatLine('Rôle attendu', DEFAULT_MEMBER_ROLE_NAME),
-        formatLine('Rôles trouvés', matches.size),
-      ]),
-    );
+  let role;
+  try {
+    const registry = assertRegistryIdentity(loadManagedIds(), member.guild.id, plan);
+    role = defaultMemberRole(member.guild, registry, plan.roles.find((definition) => definition.name === DEFAULT_MEMBER_ROLE_NAME));
+  } catch (error) { noteRuntimeError('default-member-role', error); }
+  if (!role) {
+    noteRuntimeError('default-member-role', new Error('Rôle d’arrivée non attribué : identifiant absent ou permissions non conformes.'));
     return;
   }
 
-  const role = matches.first();
   if (member.roles.cache.has(role.id)) return;
 
   await member.roles.add(role, "NetherBeacon: rôle par défaut pour un nouveau membre").catch(async (error) => {
@@ -534,336 +387,10 @@ const noteRuntimeError = (origin, error) => {
   console.error(`[${origin}] ${safeMessage}`);
 };
 
-const sortByPosition = (left, right) => left.rawPosition - right.rawPosition;
-
-const ensureStatsCategoryLast = async (guild, category) => {
-  const categories = [...guild.channels.cache.filter((channel) => channel.type === ChannelType.GuildCategory).values()].sort(sortByPosition);
-  if (!categories.length || categories.at(-1)?.id === category.id) {
-    return;
-  }
-
-  const ordered = categories.filter((channel) => channel.id !== category.id);
-  ordered.push(category);
-
-  await tryDiscordWrite(
-    guild.channels.setPositions(
-      ordered.map((channel, index) => ({
-        channel: channel.id,
-        position: index,
-      })),
-    ),
-    'NetherBeacon: move stats category last',
-  );
-};
-
-const findStatsCategoryCandidates = (guild) => {
-  const managedNames = new Set([STATS_CATEGORY_NAME, ...STATS_CATEGORY_LEGACY_NAMES]);
-  return [...guild.channels.cache.filter((channel) => channel.type === ChannelType.GuildCategory && managedNames.has(channel.name)).values()].sort(sortByPosition);
-};
-
-const ensureStatsCategory = async (guild) => {
-  const candidates = findStatsCategoryCandidates(guild);
-  const exact = candidates.filter((channel) => channel.name === STATS_CATEGORY_NAME);
-  const legacy = candidates.filter((channel) => STATS_CATEGORY_LEGACY_NAMES.includes(channel.name));
-
-  if (exact.length > 1) {
-    console.warn(`Multiple "${STATS_CATEGORY_NAME}" categories detected. Reusing the first one.`);
-  }
-
-  if (exact.length && legacy.length) {
-    console.warn(`Both "${STATS_CATEGORY_NAME}" and legacy stats categories detected. Reusing "${STATS_CATEGORY_NAME}".`);
-  }
-
-  let category = exact[0] || legacy[0] || null;
-
-  if (!category) {
-    category = await tryDiscordWrite(
-      guild.channels.create({
-        name: STATS_CATEGORY_NAME,
-        type: ChannelType.GuildCategory,
-        permissionOverwrites: getStatsPermissionOverwrites(guild),
-      }),
-      'NetherBeacon: create stats category',
-    );
-  } else {
-    if (category.name !== STATS_CATEGORY_NAME) {
-      category = await tryDiscordWrite(
-        category.edit({ name: STATS_CATEGORY_NAME }, 'NetherBeacon: rename legacy stats category'),
-        'NetherBeacon: rename stats category',
-      ) || category;
-    }
-
-    await ensureManagedStatsOverwrites(category, guild, 'NetherBeacon: lock managed stats category');
-  }
-
-  if (!category) {
-    throw new Error("La catégorie Stats n'est pas disponible.");
-  }
-
-  await ensureStatsCategoryLast(guild, category);
-  return category;
-};
-
-const removeLegacyStatsTimeChannels = async (category) => {
-  const legacyChannels = [...category.children.cache.filter(
-    (channel) =>
-      channel.type === ChannelType.GuildVoice &&
-      channel.name.startsWith('🕘・'),
-  ).values()];
-
-  for (const channel of legacyChannels) {
-    await tryDiscordWrite(
-      channel.delete('NetherBeacon: remove obsolete time stats channel'),
-      `NetherBeacon: remove obsolete stats time channel ${channel.id}`,
-    );
-  }
-};
-
-const removeStatsLiveChannels = async (category) => {
-  const liveChannels = [...category.children.cache.filter(
-    (channel) =>
-      channel.type === ChannelType.GuildText &&
-      channel.name === STATS_LIVE_CHANNEL_NAME,
-  ).values()];
-
-  for (const channel of liveChannels) {
-    await tryDiscordWrite(
-      channel.delete('NetherBeacon: remove obsolete text stats channel'),
-      `NetherBeacon: remove obsolete text stats channel ${channel.id}`,
-    );
-  }
-};
-
-const findManagedStatsVoiceChannel = (guild, category, prefix) => {
-  const candidates = [...guild.channels.cache.filter(
-    (channel) =>
-      channel.parentId === category.id &&
-      channel.type === ChannelType.GuildVoice &&
-      channel.name.startsWith(prefix),
-  ).values()].sort(sortByPosition);
-
-  if (candidates.length > 1) {
-    console.warn(`Multiple managed stats channels detected for prefix "${prefix}". Reusing the first one.`);
-  }
-
-  return candidates[0] || null;
-};
-
-const ensureManagedStatsVoiceChannel = async (guild, category, prefix, name) => {
-  let channel = findManagedStatsVoiceChannel(guild, category, prefix);
-
-  if (!channel) {
-    channel = await tryDiscordWrite(
-      guild.channels.create({
-        name,
-        type: ChannelType.GuildVoice,
-        parent: category.id,
-        permissionOverwrites: getStatsPermissionOverwrites(guild),
-      }),
-      `NetherBeacon: create stats channel ${prefix}`,
-    );
-    return channel;
-  }
-
-  const updates = {};
-  if (channel.name !== name) {
-    updates.name = name;
-  }
-
-  if (channel.parentId !== category.id) {
-    updates.parent = category.id;
-  }
-
-  if (Object.keys(updates).length) {
-    channel = await tryDiscordWrite(
-      channel.edit(updates, 'NetherBeacon: refresh managed stats channel'),
-      `NetherBeacon: refresh stats channel ${prefix}`,
-    ) || channel;
-  }
-
-  await ensureManagedStatsOverwrites(channel, guild, 'NetherBeacon: lock managed stats channel');
-
-  return channel;
-};
-
-const buildStatsChannelNames = (snapshot) => [
-  { prefix: STATS_CHANNEL_PREFIXES.date, name: `${STATS_CHANNEL_PREFIXES.date}${snapshot.date}` },
-  { prefix: STATS_CHANNEL_PREFIXES.online, name: `${STATS_CHANNEL_PREFIXES.online}en ligne : ${snapshot.onlineUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.idle, name: `${STATS_CHANNEL_PREFIXES.idle}absents : ${snapshot.idleUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.dnd, name: `${STATS_CHANNEL_PREFIXES.dnd}occupés : ${snapshot.dndUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.offline, name: `${STATS_CHANNEL_PREFIXES.offline}déco : ${snapshot.offlineUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.voice, name: `${STATS_CHANNEL_PREFIXES.voice}en vocal : ${snapshot.voiceUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.users, name: `${STATS_CHANNEL_PREFIXES.users}joueurs : ${snapshot.humanUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.bots, name: `${STATS_CHANNEL_PREFIXES.bots}robots : ${snapshot.botUsers}` },
-  { prefix: STATS_CHANNEL_PREFIXES.channels, name: `${STATS_CHANNEL_PREFIXES.channels}salons : ${snapshot.channels}` },
-  { prefix: STATS_CHANNEL_PREFIXES.roles, name: `${STATS_CHANNEL_PREFIXES.roles}rôles actifs : ${snapshot.roles}` },
-];
-
-let statsRefreshTimer = null;
-let statsRefreshBootstrapTimer = null;
-let hasFetchedInitialMembers = false;
-let statsRefreshInFlight = false;
-let statsRefreshQueuedGuild = null;
-let lastStatsVoiceRefreshAt = 0;
-
-const ensureStatsMemberCache = async (guild) => {
-  if (hasFetchedInitialMembers && guild.members.cache.size >= guild.memberCount) {
-    return;
-  }
-
-  try {
-    await withTimeout(
-      guild.members.fetch(),
-      STATS_MEMBER_FETCH_TIMEOUT_MS,
-      'stats member fetch',
-    );
-    hasFetchedInitialMembers = true;
-  } catch (error) {
-    console.warn(`Unable to fully refresh guild members cache for stats: ${error.message}`);
-  }
-};
-
-const buildStatsSnapshot = async (guild, category) => {
-  await ensureStatsMemberCache(guild);
-
-  const members = [...guild.members.cache.values()];
-  const humanMembers = members.filter((member) => !member.user.bot);
-  const botMembers = members.filter((member) => member.user.bot);
-  const getPresenceStatus = (member) => guild.presences.cache.get(member.id)?.status || member.presence?.status || 'offline';
-  const onlineUsers = humanMembers.filter((member) => getPresenceStatus(member) === 'online').length;
-  const idleUsers = humanMembers.filter((member) => getPresenceStatus(member) === 'idle').length;
-  const dndUsers = humanMembers.filter((member) => getPresenceStatus(member) === 'dnd').length;
-  const offlineUsers = Math.max(humanMembers.length - onlineUsers - idleUsers - dndUsers, 0);
-
-  return {
-    date: formatStatsDate(),
-    onlineUsers,
-    idleUsers,
-    dndUsers,
-    offlineUsers,
-    voiceUsers: humanMembers.filter((member) => member.voice?.channelId && member.voice.channel?.parentId !== category.id).length,
-    humanUsers: humanMembers.length,
-    botUsers: botMembers.length,
-    channels: guild.channels.cache.filter(
-      (channel) => channel.type !== ChannelType.GuildCategory && channel.parentId !== category.id,
-    ).size,
-    roles: guild.roles.cache.filter((role) => role.id !== guild.id && role.members.size > 0).size,
-  };
-};
-
-const shouldRefreshStatsVoiceChannels = (origin) => {
-  if (origin === 'startup' || origin === 'slash-resync' || origin === 'slash-stats-refresh') return true;
-  return Date.now() - lastStatsVoiceRefreshAt >= STATS_VOICE_REFRESH_INTERVAL_MS;
-};
-
-const refreshStatsDisplay = async (guild, origin) => {
-  const category = await ensureStatsCategory(guild);
-  await removeLegacyStatsTimeChannels(category);
-  await removeStatsLiveChannels(category);
-  const snapshot = await buildStatsSnapshot(guild, category);
-
-  const channels = [];
-
-  if (shouldRefreshStatsVoiceChannels(origin)) {
-    for (const entry of buildStatsChannelNames(snapshot)) {
-      const channel = await ensureManagedStatsVoiceChannel(guild, category, entry.prefix, entry.name);
-      if (channel) {
-        channels.push(channel);
-      }
-    }
-
-    const currentOrder = [...category.children.cache.values()]
-      .filter((channel) => channels.some((managedChannel) => managedChannel.id === channel.id))
-      .sort(sortByPosition)
-      .map((channel) => channel.id);
-    const desiredOrder = channels.map((channel) => channel.id);
-
-    if (currentOrder.join('|') !== desiredOrder.join('|')) {
-      for (const [index, channel] of channels.entries()) {
-        await tryDiscordWrite(
-          channel.setPosition(index),
-          `NetherBeacon: position stats channel ${channel.name}`,
-        );
-      }
-    }
-
-    lastStatsVoiceRefreshAt = Date.now();
-  }
-
-  await ensureStatsCategoryLast(guild, category);
-
-  state.lastStats = {
-    at: new Date().toISOString(),
-    snapshot,
-    presenceCacheSize: guild.presences.cache.size,
-  };
-  updateRuntimeFiles();
-};
-
-const refreshStatsDisplaySafe = async (guild, origin) => {
-  if (statsRefreshInFlight) {
-    statsRefreshQueuedGuild = guild;
-    return;
-  }
-
-  statsRefreshInFlight = true;
-
-  try {
-    await refreshStatsDisplay(guild, origin);
-  } catch (error) {
-    noteRuntimeError(`stats:${origin}`, error);
-  } finally {
-    statsRefreshInFlight = false;
-
-    const queuedGuild = statsRefreshQueuedGuild;
-    statsRefreshQueuedGuild = null;
-    if (queuedGuild) {
-      await refreshStatsDisplaySafe(queuedGuild, `${origin}:queued`);
-    }
-  }
-};
-
-const statsEventDebouncer = createStatsRefreshDebouncer(STATS_EVENT_DEBOUNCE_MS, refreshStatsDisplaySafe);
-const queueStatsEventRefresh = (guild, origin) => {
-  statsEventDebouncer.schedule(guild, origin);
-};
-
-const startStatsScheduler = () => {
-  if (statsRefreshTimer || statsRefreshBootstrapTimer) {
-    return;
-  }
-
-  const scheduleInterval = () => {
-    if (statsRefreshTimer) {
-      return;
-    }
-
-    statsRefreshTimer = setInterval(async () => {
-      const guild = client.guilds.cache.get(GUILD_ID);
-      if (!guild) {
-        return;
-      }
-
-      await refreshStatsDisplaySafe(guild, 'interval');
-    }, STATS_REFRESH_INTERVAL_MS);
-
-    statsRefreshTimer.unref();
-  };
-
-  const initialDelay = STATS_REFRESH_INTERVAL_MS - (Date.now() % STATS_REFRESH_INTERVAL_MS);
-  statsRefreshBootstrapTimer = setTimeout(async () => {
-    statsRefreshBootstrapTimer = null;
-
-    const guild = client.guilds.cache.get(GUILD_ID);
-    if (guild) {
-      await refreshStatsDisplaySafe(guild, 'minute-boundary');
-    }
-
-    scheduleInterval();
-  }, initialDelay);
-
-  statsRefreshBootstrapTimer.unref();
-};
+const { refresh: refreshStatsDisplaySafe, schedule: queueStatsEventRefresh, start: startStatsScheduler } = createStatsManager({
+  state, updateRuntimeFiles, noteRuntimeError, client, guildId: GUILD_ID, timeZone: BOT_TIMEZONE,
+  debounceMs: STATS_EVENT_DEBOUNCE_MS, refreshIntervalMs: STATS_VOICE_REFRESH_INTERVAL_MS,
+});
 
 const summarizeStatus = (guild) => {
   const services = readServiceState();
@@ -878,7 +405,7 @@ const summarizeStatus = (guild) => {
     formatLine('Uptime', formatDuration(state.startedAt)),
     formatLine('Serveur', `${guild.name} (${guild.id})`),
     formatLine('Alpha', adminState?.running ? 'en ligne' : 'hors ligne'),
-    formatLine('Bravo', museState?.running ? 'en ligne' : 'hors ligne'),
+    formatLine('Bravo', museState?.running ? 'processus actif · connexion Discord non vérifiée' : 'processus absent ou signal périmé'),
     formatLine('Tâche active', state.activeTask || 'aucune'),
     '',
     '**Canaux suivis**',
@@ -975,7 +502,7 @@ const formatDuration = (startedAt) => {
 };
 
 const replyPalworldRestNotConfigured = async (interaction) => {
-  await interaction.reply({
+  await replyToInteraction(interaction, {
     content: formatBotMessage('⚠️ API admin Palworld désactivée', [
       'La passerelle admin locale n’est pas configurée côté bot.',
     ]),
@@ -986,7 +513,7 @@ const replyPalworldRestNotConfigured = async (interaction) => {
 const runPalworldMetricsCommand = async (interaction) => {
   const cooldownSeconds = reservePalworldMetricsCooldown();
   if (cooldownSeconds > 0) {
-    await interaction.reply({
+    await replyToInteraction(interaction, {
       content: formatBotMessage('⏳ Metrics Palworld', [
         `Les metrics sont limités globalement. Réessaie dans ${cooldownSeconds}s.`,
       ]),
@@ -995,7 +522,7 @@ const runPalworldMetricsCommand = async (interaction) => {
     return;
   }
 
-  await interaction.deferReply();
+  await acknowledgeInteraction(interaction, { ephemeral: false });
 
   try {
     const metrics = await palworldPublicClient.fetchStatus();
@@ -1037,13 +564,13 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
     return;
   }
 
-  const allowedChannels = await resolvePalworldAdminChannels(guild);
+  const allowedChannels = resolvePalworldAdminChannels(guild);
   const isAllowedChannel = allowedChannels.some((channel) => channel.id === interaction.channelId);
   if (!isAllowedChannel) {
     const channelList = allowedChannels.length
       ? allowedChannels.map((channel) => `<#${channel.id}>`).join(', ')
       : PALWORLD_ADMIN_CHANNEL_NAMES.map((name) => `#${name}`).join(', ');
-    await interaction.reply({
+    await replyToInteraction(interaction, {
       content: formatBotMessage('📣 Annonce Palworld', [
         `Utilise cette commande dans ${channelList || 'le salon Palworld configuré'}.`,
       ]),
@@ -1054,7 +581,7 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
 
   const palworldChannelId = getPalworldChannelId(guild);
   if (!palworldChannelId) {
-    await interaction.reply({
+    await replyToInteraction(interaction, {
       content: formatBotMessage('⚠️ Salon Palworld introuvable', [
         formatLine('Salon attendu', PALWORLD_CHANNEL_NAME),
       ]),
@@ -1067,7 +594,7 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
   try {
     message = normalizeAnnouncementMessage(interaction.options.getString('message', true));
   } catch (error) {
-    await interaction.reply({
+    await replyToInteraction(interaction, {
       content: formatBotMessage('⚠️ Annonce Palworld', [
         'Le message est vide ou trop long.',
       ]),
@@ -1078,7 +605,7 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
 
   const cooldownSeconds = reservePalworldAdminCooldown();
   if (cooldownSeconds > 0) {
-    await interaction.reply({
+    await replyToInteraction(interaction, {
       content: formatBotMessage('⏳ Annonce Palworld', [
         `Réessaie dans ${cooldownSeconds}s.`,
       ]),
@@ -1087,7 +614,7 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
     return;
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await acknowledgeInteraction(interaction);
 
   try {
     await palworldAdminClient.sendAnnouncement(message);
@@ -1135,8 +662,8 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
     updateRuntimeFiles();
 
     await interaction.editReply({
-      content: formatBotMessage('⚠️ Annonce Palworld non envoyée', [
-        "L'annonce n'a pas été relayée parce que la passerelle locale Palworld est indisponible.",
+      content: formatBotMessage('⚠️ Livraison Palworld non confirmée', [
+        'La passerelle n’a pas confirmé la livraison. Vérifie en jeu avant de réessayer pour éviter un doublon.',
       ]),
     }).catch(() => undefined);
 
@@ -1147,42 +674,11 @@ const runPalworldAnnouncementCommand = async (interaction, guild) => {
   }
 };
 
-const helpText = [
-  '**🧭 Aide rapide - NetherBeacon**',
-  '',
-  'Alpha gère le serveur, les logs et les stats. Bravo s’occupe de la musique via Muse.',
-  '',
-  '**Fonctions**',
-  '- audit non destructif du serveur cible',
-  '- création non destructive des ressources et permissions gérées strictes',
-  '- logs des arrivées, départs et mouvements vocaux',
-  '- catégorie Stats publique, vocale, verrouillée, mise à jour toutes les 5 minutes avec les KPI joueurs',
-  '- Palworld: statut public Gaylemon et annonces staff vers le jeu',
-  '- résumé Gaylemon de la veille disponible à la demande avec `/resume-hier`',
-  '- Muse auto-hébergé dans le même conteneur',
-  `- commandes admin: ${formatCommandList(['/status', '/audit', '/resync', '/help', '/welcome-preview', '/stats-refresh', '/diag', '/cache-status'])}`,
-  `- commande admin/modo: ${formatCommandList(['/announce-palworld'])}`,
-  `- commandes Palworld publiques: ${formatCommandList(['/metrics-palworld', `/${SUMMARY_COMMAND_NAME}`])}`,
-  `- commandes Pokédex publiques: ${formatCommandList(['/pokemon', '/weakness', '/move', '/ability', '/type', '/random-pokemon'])}`,
-  '',
-  '**Prérequis**',
-  '- deux bots Discord distincts',
-  '- scope OAuth2 bot + applications.commands pour le bot admin',
-  '- Server Members Intent pour le bot admin',
-  '- Presence Intent pour les KPI en ligne / absent / déco',
-  '- Manage Guild, Manage Roles, Manage Channels pour le bot admin',
-  '- REST API Palworld activée seulement pour les annonces staff relayées en jeu',
-  '',
-  '**Notes**',
-  "- les commandes publiques Palworld lisent les JSON filtrés du microsite Gaylemon",
-  '- le bot ne supprime pas les ressources existantes',
-].join('\n');
-
 const buildStartupLogMessage = (startupReport) =>
   [
     '**🟢 NetherBeacon Alpha est en ligne**',
     '',
-    'Alpha est revenu en ligne. J’ai relu la structure du serveur sans toucher à l’existant.',
+    'Alpha est revenu en ligne. La structure et les permissions gérées ont été synchronisées.',
     '',
     '**Synchronisation**',
     formatLine('Résultat', startupReport.summary),
@@ -1200,7 +696,7 @@ const buildStartupLogMessage = (startupReport) =>
     '**À savoir**',
     '- Les logs techniques arrivent ici.',
     '- Les arrivées, départs et mouvements vocaux restent dans le canal public prévu.',
-    '- Les Stats tournent automatiquement et restent visibles.',
+    '- Consulte `/status` pour le résultat des dernières statistiques.',
   ].join('\n');
 
 client.once('clientReady', async () => {
@@ -1221,13 +717,15 @@ client.once('clientReady', async () => {
     updateRuntimeFiles();
 
     if (FULL_PROFILE_ENABLED) {
-      await refreshStatsDisplaySafe(guild, 'startup');
+      const startupStats = await refreshStatsDisplaySafe(guild, 'startup');
       startStatsScheduler();
-      await sendLog(guild, buildStartupLogMessage(startupReport));
+      const statsNotice = startupStats.status === 'failed' ? '\n\n⚠️ Stats indisponibles : vérifie les identifiants avec capture:ids avant leur remise en service.' : '';
+      await sendLog(guild, buildStartupLogMessage(startupReport) + statsNotice);
     }
     console.log(`Admin bot ready for guild ${guild.name} (${guild.id}) with ${BOT_PROFILE} profile.`);
   } catch (error) {
     state.lastError = sanitizePalworldText(error?.message || 'startup failed', knownSecretValues());
+    stopping = true;
     state.healthy = false;
     updateRuntimeFiles();
     console.error(state.lastError);
@@ -1235,286 +733,42 @@ client.once('clientReady', async () => {
   }
 });
 
-client.on('interactionCreate', async (interaction) => {
-  if (interaction.isAutocomplete()) {
-    if (
-      interaction.guildId !== GUILD_ID
-      || !enabledCommandNames.has(interaction.commandName)
-      || !POKEDEX_COMMAND_NAMES.has(interaction.commandName)
-    ) {
-      await interaction.respond([]).catch(() => undefined);
-      return;
-    }
-
-    try {
-      const focused = interaction.options.getFocused(true);
-      const choices = await autocompletePokedex(interaction.commandName, focused.value);
-      await interaction.respond(choices);
-    } catch (error) {
-      console.error(`[autocomplete:${interaction.commandName}] failed`, error);
-      await interaction.respond([]).catch(() => undefined);
-    }
-    return;
-  }
-
-  if (!interaction.isChatInputCommand()) return;
-  if (interaction.guildId !== GUILD_ID) {
-    await interaction.reply({
-      content: formatBotMessage('⛔ Mauvais serveur', ["Ce bot ne gère qu'un seul serveur cible."]),
-      ephemeral: true,
-    }).catch(() => undefined);
-    return;
-  }
-
-  if (!enabledCommandNames.has(interaction.commandName)) {
-    await interaction.reply({
-      content: formatBotMessage('🔒 Commande désactivée', ['Cette commande ne fait pas partie du profil actif.']),
-      ephemeral: true,
-    }).catch(() => undefined);
-    return;
-  }
-
-  if (POKEDEX_COMMAND_NAMES.has(interaction.commandName)) {
-    const cooldownSeconds = getPublicCommandCooldown(interaction.user.id);
-    if (cooldownSeconds > 0) {
-      await interaction.reply({
-        content: formatBotMessage('⏳ Doucement', [
-          `Attends encore ${cooldownSeconds}s avant une autre commande publique.`,
-        ]),
-        ephemeral: true,
-      }).catch(() => undefined);
-      return;
-    }
-
-    const globalCooldownSeconds = pokedexGlobalCooldown.reserve('pokedex-global');
-    if (globalCooldownSeconds > 0) {
-      await interaction.reply({
-        content: formatBotMessage('⏳ Pokédex occupé', [
-          `Réessaie dans ${globalCooldownSeconds}s.`,
-        ]),
-        ephemeral: true,
-      }).catch(() => undefined);
-      return;
-    }
-
-    try {
-      await interaction.deferReply();
-      const result = await runPokedexCommand(interaction);
-      try {
-        await interaction.editReply(normalizeDiscordReplyPayload(result));
-      } catch (sendError) {
-        console.error(`[pokedex:${interaction.commandName}] reply failed`, sendError);
-        await interaction.editReply(normalizePokedexFallbackPayload(result));
-      }
-    } catch (error) {
-      console.error(`[pokedex:${interaction.commandName}] lookup failed`, error);
-      const content = formatPokedexLookupError(error);
-      const payload = { content, allowedMentions: { parse: [] } };
-
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply(payload).catch(() => undefined);
-      } else {
-        await interaction.reply({ ...payload, ephemeral: true }).catch(() => undefined);
-      }
-    }
-    return;
-  }
-
-  if (interaction.commandName === 'metrics-palworld') {
-    await runPalworldMetricsCommand(interaction);
-    return;
-  }
-
-  if (interaction.commandName === SUMMARY_COMMAND_NAME) {
-    const cooldownSeconds = getPublicCommandCooldown(interaction.user.id);
-    if (cooldownSeconds > 0) {
-      await interaction.reply({
-        content: formatBotMessage('⏳ Doucement', [
-          `Attends encore ${cooldownSeconds}s avant une autre commande publique.`,
-        ]),
-        ephemeral: true,
-      }).catch(() => undefined);
-      return;
-    }
-
-    try {
-      const guild = await refreshGuild();
-      await handleDailySummaryCommand(interaction, guild);
-    } catch (error) {
-      state.lastError = 'daily-summary-command: indisponible';
-      updateRuntimeFiles();
-      const payload = {
-        content: formatBotMessage('⚠️ Résumé Gaylemon indisponible', [
-          'Le résumé public ne peut pas être préparé pour le moment.',
-        ]),
-        ephemeral: true,
-      };
-
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply(payload).catch(() => undefined);
-      } else {
-        await interaction.reply(payload).catch(() => undefined);
-      }
-    }
-    return;
-  }
-
-  if (STAFF_COMMAND_NAMES.has(interaction.commandName)) {
-    if (!hasStaffAccess(interaction)) {
-      await interaction.reply({
-        content: formatBotMessage('🔒 Accès refusé', ['Commande réservée aux administrateurs et modérateurs.']),
-        ephemeral: true,
-      }).catch(() => undefined);
-      return;
-    }
-
-    try {
-      const guild = await refreshGuild();
-      state.guildName = guild.name;
-      updateRuntimeFiles();
-
-      if (interaction.commandName === 'announce-palworld') {
-        await runPalworldAnnouncementCommand(interaction, guild);
-        return;
-      }
-    } catch (error) {
-      state.lastError = sanitizePalworldText(error?.message || 'staff command failed', knownSecretValues());
-      state.healthy = false;
-      updateRuntimeFiles();
-      const payload = {
-        content: formatBotMessage('⚠️ Erreur Alpha', [
-          'La commande staff ne peut pas être terminée pour le moment.',
-        ]),
-        ephemeral: true,
-      };
-
-      if (interaction.deferred || interaction.replied) {
-        await interaction.editReply(payload).catch(() => undefined);
-      } else {
-        await interaction.reply(payload).catch(() => undefined);
-      }
-      return;
-    }
-  }
-
-  if (!hasAdminAccess(interaction)) {
-    await interaction.reply({
-      content: formatBotMessage('🔒 Accès refusé', ['Commande réservée aux administrateurs.']),
-      ephemeral: true,
-    }).catch(() => undefined);
-    return;
-  }
-
-  try {
-    const guild = await refreshGuild();
-    state.guildName = guild.name;
-    updateRuntimeFiles();
-
-    if (interaction.commandName === 'status') {
-      await interaction.reply({ content: summarizeStatus(guild), ephemeral: true });
-      return;
-    }
-
-    if (interaction.commandName === 'help') {
-      await interaction.reply({ content: helpText, ephemeral: true });
-      return;
-    }
-
-    if (interaction.commandName === 'welcome-preview') {
-      await interaction.reply({
-        content: formatBotMessage("👀 Prévisualisation de l'accueil", [
-          buildWelcomeMessage(interaction.member),
-        ]),
-        ephemeral: true,
-      });
-      return;
-    }
-
-    if (interaction.commandName === 'diag') {
-      const services = readServiceState();
-      await interaction.reply({
-        content: formatDiagnostics({
-          state,
-          guild,
-          services,
-          pingMs: client.ws.ping,
-          commandHash,
-          commandCount: commandPayload.length,
-          dependencies: {
-            discordJs: pkg.dependencies['discord.js'],
-            dotenv: pkg.dependencies.dotenv,
-          },
-          timeZone: BOT_TIMEZONE,
-          secrets: knownSecretValues(),
-        }),
-        ephemeral: true,
-      });
-      return;
-    }
-
-    if (interaction.commandName === 'cache-status') {
-      await interaction.reply({
-        content: formatCacheStatus({
-          runtimeDir: paths.runtimeDir,
-          timeZone: BOT_TIMEZONE,
-        }),
-        ephemeral: true,
-      });
-      return;
-    }
-
-    await interaction.deferReply({ ephemeral: true });
-
-    if (interaction.commandName === 'audit') {
-      const report = await runAudit(guild, 'slash');
-      const message = formatReportForChat(report);
-      await interaction.editReply({ content: message });
-      await sendLog(guild, formatBotMessage('🔎 Audit admin', [
-        formatLine('Résumé', report.summary),
-      ]));
-      return;
-    }
-
-    if (interaction.commandName === 'resync') {
-      const report = await runSync(guild, 'slash');
-      await refreshStatsDisplaySafe(guild, 'slash-resync');
-      const message = formatReportForChat(report);
-      await interaction.editReply({ content: message });
-      await sendLog(guild, formatBotMessage('🔁 Resync admin', [
-        formatLine('Résumé', report.summary),
-      ]));
-      return;
-    }
-
-    if (interaction.commandName === 'stats-refresh') {
-      await refreshStatsDisplaySafe(guild, 'slash-stats-refresh');
-      await interaction.editReply({
-        content: formatBotMessage('📊 Stats rafraîchies', [
-          'Les salons vocaux de statistiques ont été mis à jour.',
-        ]),
-      });
-      await sendLog(guild, formatBotMessage('📊 Stats forcées', [
-        formatLine('Action', 'commande admin `/stats-refresh`'),
-      ]));
-    }
-  } catch (error) {
-    const safeMessage = sanitizePalworldText(error?.message || 'admin command failed', knownSecretValues());
-    state.lastError = safeMessage;
-    state.healthy = false;
-    updateRuntimeFiles();
-    const payload = {
-      content: formatBotMessage('⚠️ Erreur Alpha', [
-        formatLine('Message', safeMessage),
-      ]),
-      ephemeral: true,
-    };
-
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(payload).catch(() => undefined);
-    } else {
-      await interaction.reply(payload).catch(() => undefined);
-    }
-  }
+const handleInteraction = createInteractionHandler({
+  GUILD_ID,
+  enabledCommandNames,
+  BOT_PROFILE,
+  hasAdminAccess,
+  hasStaffAccess,
+  getPublicCommandCooldown,
+  pokedexGlobalCooldown,
+  runPokedexCommand,
+  formatPokedexLookupError,
+  runPalworldMetricsCommand,
+  handleDailySummaryCommand,
+  state,
+  updateRuntimeFiles,
+  runPalworldAnnouncementCommand,
+  knownSecretValues,
+  refreshGuild,
+  summarizeStatus,
+  buildWelcomeMessage,
+  readServiceState,
+  client,
+  commandHash,
+  commandPayload,
+  BOT_TIMEZONE,
+  runAudit,
+  sendLog,
+  runSync,
+  refreshStatsDisplaySafe,
+  formatBotMessage,
+  formatLine
+});
+client.on('interactionCreate', (interaction) => {
+  void handleInteraction(interaction).catch(async (error) => {
+    noteRuntimeError('interaction', error);
+    if (interaction.isChatInputCommand()) await replyToInteraction(interaction, { content: 'La commande ne peut pas être terminée. Consulte les diagnostics.', ephemeral: true }).catch(() => undefined);
+  });
 });
 
 client.on('guildMemberAdd', async (member) => {
@@ -1545,37 +799,18 @@ client.on('guildMemberRemove', async (member) => {
 });
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
-  if (!FULL_PROFILE_ENABLED) return;
-  if (oldState.guildId !== GUILD_ID) return;
-  if (oldState.channelId === newState.channelId) return;
-
-  const member = newState.member || oldState.member;
-  const before = oldState.channel?.name ?? null;
-  const after = newState.channel?.name ?? null;
-
-  if (!before && after) {
-    await sendEventLog(newState.guild, formatBotMessage('🎙️ Vocal', [
-      formatLine('Membre', formatMember(member)),
-      formatLine('Action', `a rejoint ${after}`),
-    ]));
-    state.lastVoiceEvent = `${formatMember(member)} a rejoint ${after}`;
-  } else if (before && !after) {
-    await sendEventLog(oldState.guild, formatBotMessage('🎙️ Vocal', [
-      formatLine('Membre', formatMember(member)),
-      formatLine('Action', `a quitté ${before}`),
-    ]));
-    state.lastVoiceEvent = `${formatMember(member)} a quitté ${before}`;
-  } else if (before && after) {
-    await sendEventLog(newState.guild, formatBotMessage('🎙️ Vocal', [
-      formatLine('Membre', formatMember(member)),
-      formatLine('Avant', before),
-      formatLine('Après', after),
-    ]));
-    state.lastVoiceEvent = `${formatMember(member)} a changé de salon: ${before} -> ${after}`;
-  }
-  updateRuntimeFiles();
-
+  if (!FULL_PROFILE_ENABLED || newState.guild.id !== GUILD_ID || oldState.channelId === newState.channelId) return;
   queueStatsEventRefresh(newState.guild, 'voice-state');
+  try {
+    const transition = publicVoiceTransition(oldState, newState, GUILD_ID);
+    if (!transition) return;
+    const { member, previous, next } = transition;
+    const action = previous && next ? `a changé de salon : ${previous} → ${next}`
+      : next ? `a rejoint ${next}` : `a quitté ${previous}`;
+    await sendEventLog(newState.guild, formatBotMessage('🎙️ Vocal', [formatLine('Membre', formatMember(member)), formatLine('Action', action)]));
+    state.lastVoiceEvent = `${formatMember(member)} ${action}`;
+    updateRuntimeFiles();
+  } catch (error) { noteRuntimeError('voice-state', error); }
 });
 
 client.on('presenceUpdate', async (oldPresence, newPresence) => {
@@ -1591,6 +826,7 @@ client.on('presenceUpdate', async (oldPresence, newPresence) => {
 });
 
 process.on('SIGTERM', () => {
+  stopping = true;
   state.healthy = false;
   updateRuntimeFiles();
   client.destroy();
@@ -1598,11 +834,20 @@ process.on('SIGTERM', () => {
 });
 
 process.on('SIGINT', () => {
+  stopping = true;
   state.healthy = false;
   updateRuntimeFiles();
   client.destroy();
   process.exit(0);
 });
 
+for (const event of ['shardDisconnect', 'shardReconnecting', 'shardResume']) {
+  client.on(event, updateRuntimeFiles);
+}
+client.on('error', (error) => noteRuntimeError('discord-client', error));
 startHeartbeat();
-client.login(BOT_TOKEN);
+client.login(BOT_TOKEN).catch((error) => {
+  noteRuntimeError('login', error);
+  process.exitCode = 1;
+  client.destroy();
+});

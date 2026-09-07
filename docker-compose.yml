@@ -6,14 +6,13 @@ services:
       context: .
       target: alpha
     image: nether-beacon:alpha-latest
-    container_name: nether-beacon
     command: ["node", "/bot/bot.js"]
     environment:
       - DISCORD_GUILD_ID
       - DISCORD_BOT_TOKEN
       - BOT_PROFILE
       - BOT_TIMEZONE
-      - BOT_RUNTIME_DIR
+      - BOT_RUNTIME_DIR=/bot/runtime
       - BOT_PEER_STATE_DIR=/bot/peer-state
       - BOT_STATS_EVENT_DEBOUNCE_MS
       - BOT_STATS_VOICE_REFRESH_INTERVAL_MS
@@ -46,9 +45,6 @@ services:
     restart: always
     user: "10001:10001"
     read_only: true
-    depends_on:
-      nether-beacon-muse:
-        condition: service_healthy
     cpus: 1.0
     mem_limit: 512m
     cap_drop:
@@ -73,11 +69,11 @@ services:
       start_period: 45s
 
   nether-beacon-muse:
+    profiles: [music]
     build:
       context: .
       target: muse
     image: nether-beacon:muse-latest
-    container_name: nether-beacon-muse
     command: ["node", "/bot/muse-runner.js"]
     environment:
       - MUSE_DISCORD_TOKEN
@@ -120,5 +116,5 @@ services:
 volumes:
   muse-data:
     external: true
-    name: example-muse-data
+    name: ${MUSE_DATA_VOLUME:?MUSE_DATA_VOLUME requis}
   peer-state:

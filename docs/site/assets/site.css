@@ -37,6 +37,35 @@ a:hover {
   color: var(--ember);
 }
 
+:focus-visible {
+  outline: 3px solid var(--lapis);
+  outline-offset: 4px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 2;
+  padding: 12px;
+  background: var(--obsidian);
+}
+
+.skip-link:focus { top: 12px; }
+
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.status-card h2 { font-family: inherit; font-size: 1.1rem; line-height: 1.4; }
+.status-card p, .command-access { color: var(--muted); font-size: 0.95rem; }
+.command h3 { margin: 0 0 8px; font-size: 1rem; line-height: 1.5; }
+.command p { margin: 8px 0 0; }
+.step p { margin: 6px 0 0; }
+[data-copy-status] { min-height: 1.6em; }
+
+html { scroll-padding-top: 24px; }
+button { font: inherit; cursor: pointer; }
+p, h1, h2, h3, .command, .step { overflow-wrap: anywhere; }
+.hero-grid > *, .step > *, .status-card { min-width: 0; }
+
 .shell {
   width: min(1160px, calc(100% - 32px));
   margin: 0 auto;
@@ -44,7 +73,6 @@ a:hover {
 
 .hero {
   position: relative;
-  overflow: hidden;
   padding: 48px 0 56px;
 }
 
@@ -151,6 +179,9 @@ h1 {
   box-shadow: none;
 }
 
+.button:hover, .button:focus-visible { color: var(--obsidian); }
+.button.secondary:hover, .button.secondary:focus-visible { color: var(--bone); }
+
 .status-card {
   border: 1px solid var(--line);
   border-radius: 30px;
@@ -164,6 +195,7 @@ h1 {
 .terminal {
   margin: 0;
   overflow: auto;
+  max-width: 100%;
   border-radius: 22px;
   padding: 20px;
   background: #07090d;
@@ -231,6 +263,8 @@ code {
   display: grid;
   gap: 12px;
   counter-reset: step;
+  padding: 0;
+  list-style: none;
 }
 
 .step {
@@ -268,7 +302,7 @@ code {
   .hero-grid,
   .grid,
   .commands {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .nav {
@@ -276,4 +310,10 @@ code {
     flex-direction: column;
     margin-bottom: 38px;
   }
+}
+
+@media (max-width: 400px) {
+  .status-card { padding: 16px; }
+  .terminal { padding: 12px; font-size: 0.82rem; }
+  .step { grid-template-columns: auto minmax(0, 1fr); }
 }

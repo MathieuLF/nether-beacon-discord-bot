@@ -3,7 +3,13 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
+const runtime = fs.mkdtempSync(path.join(os.tmpdir(), 'nether-beacon-pokedex-test-'));
+process.env.BOT_RUNTIME_DIR = runtime;
 const { _private } = require('../lib/pokedex');
+test.after(() => {
+  assert.ok(path.resolve(runtime).startsWith(path.resolve(os.tmpdir()) + path.sep));
+  fs.rmSync(runtime, { recursive: true, force: true });
+});
 
 const delay = (ms) => new Promise((resolve) => {
   setTimeout(resolve, ms);

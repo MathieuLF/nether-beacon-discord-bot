@@ -22,23 +22,28 @@
     },
     "adminRoleName": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 100
     },
     "defaultMemberRoleName": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 100
     },
     "eventChannelName": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 100
     },
     "welcomeChannelName": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 100
     },
     "logChannelName": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "maxLength": 100
     },
     "guild": {
       "type": "object",
@@ -94,11 +99,13 @@
         "properties": {
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 100
           },
           "color": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "maximum": 16777215
           },
           "permissions": {
             "type": "array",
@@ -137,13 +144,15 @@
         "properties": {
           "category": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "maxLength": 100
           },
           "legacyNames": {
             "type": "array",
             "items": {
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "maxLength": 100
             }
           },
           "channels": {
@@ -161,13 +170,15 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "minLength": 1
+                  "minLength": 1,
+                  "maxLength": 100
                 },
                 "legacyNames": {
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "minLength": 1
+                    "minLength": 1,
+                    "maxLength": 100
                   }
                 },
                 "type": {
@@ -210,7 +221,8 @@
                   "type": "boolean"
                 },
                 "topic": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 1024
                 }
               }
             }

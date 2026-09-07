@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { buildMuseEnv } = require('./lib/muse-env');
+const { writeJsonAtomic } = require('./lib/atomic-json');
 
 if (!process.env.MUSE_DISCORD_TOKEN?.trim()) {
   throw new Error('Missing required environment variable MUSE_DISCORD_TOKEN');
@@ -20,11 +21,7 @@ const state = {
   signal: null,
 };
 
-const writeState = () => {
-  const tempPath = `${statePath}.${process.pid}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(state, null, 2), 'utf8');
-  fs.renameSync(tempPath, statePath);
-};
+const writeState = () => writeJsonAtomic(statePath, state);
 
 const child = spawn('node', ['--enable-source-maps', '/usr/app/dist/scripts/migrate-and-start.js'], {
   cwd: '/usr/app',

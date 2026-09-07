@@ -40,6 +40,7 @@ function Send-DiscordLogMessage {
   }
   $body = @{
     content = $Content
+    allowed_mentions = @{ parse = @() }
   } | ConvertTo-Json -Depth 4
 
   Invoke-RestMethod -Uri $uri -Method Post -Headers $headers -ContentType 'application/json; charset=utf-8' -Body $body | Out-Null
@@ -52,26 +53,34 @@ function Normalize-PathForCompare {
   return ([System.IO.Path]::GetFullPath($Path)).TrimEnd('\', '/')
 }
 
-function Remove-WrongOriginContainer {
-  param(
-    [string] $ContainerName,
-    [string] $ExpectedWorkingDir
-  )
-
-  $actualWorkingDir = docker inspect $ContainerName --format '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' 2>$null
-  if ($LASTEXITCODE -ne 0 -or -not $actualWorkingDir) {
-    return
-  }
-
+function Assert-ContainerOrigin {
+  param([string] $ContainerId, [string] $ExpectedWorkingDir, [string] $ExpectedProject)
+  $raw = docker inspect $ContainerId 2>$null
+  if ($LASTEXITCODE -ne 0) { throw "Cannot inspect container $ContainerId; no restart performed." }
+  $container = ($raw | ConvertFrom-Json)[0]
+  $labels = $container.Config.Labels
+  $actual = Normalize-PathForCompare -Path $labels.'com.docker.compose.project.working_dir'
   $expected = Normalize-PathForCompare -Path $ExpectedWorkingDir
-  $actual = Normalize-PathForCompare -Path $actualWorkingDir
-  if ($actual -eq $expected) {
-    return
+  $comparison = if ([System.IO.Path]::DirectorySeparatorChar -eq '\') { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+  if (-not $actual -or -not [string]::Equals($actual, $expected, $comparison) -or $labels.'com.docker.compose.project' -ne $ExpectedProject) {
+    throw "Container $ContainerId belongs to another or unknown Compose source. Review its labels and select the correct Docker context/project. Nothing was stopped or removed."
   }
+}
 
-  Write-Warning "Removing $ContainerName because it was created from '$actualWorkingDir' instead of '$ExpectedWorkingDir'."
-  docker stop $ContainerName | Out-Null
-  docker rm $ContainerName | Out-Null
+function Assert-ComposeOwnership {
+  param([string] $ExpectedWorkingDir, [string] $ExpectedProject)
+  docker info --format '{{.OSType}}' | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Docker daemon unavailable.' }
+  $containers = @(docker ps -a --filter "label=com.docker.compose.project=$ExpectedProject" --format '{{.ID}}')
+  if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate Compose containers.' }
+  foreach ($legacyName in @('nether-beacon', 'nether-beacon-muse')) {
+    $legacy = @(docker ps -a --filter "name=^/$legacyName$" --format '{{.ID}}')
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect legacy container ownership.' }
+    $containers += $legacy
+  }
+  foreach ($containerId in ($containers | Where-Object { $_ } | Select-Object -Unique)) {
+    Assert-ContainerOrigin -ContainerId $containerId -ExpectedWorkingDir $ExpectedWorkingDir -ExpectedProject $ExpectedProject
+  }
 }
 
 if (-not (Test-Path -LiteralPath $envPath)) {
@@ -90,19 +99,29 @@ if (Test-Path -LiteralPath $adminStatePath) {
   $logChannelId = [string] $adminState.logChannelId
 }
 
+Push-Location -LiteralPath $projectRoot
+try {
+  # Capture resolved configuration internally; never print credential-bearing config.
+  $resolved = docker compose config --format json | ConvertFrom-Json
+  if ($LASTEXITCODE -ne 0 -or -not $resolved.name) { throw 'Invalid Compose configuration.' }
+  Assert-ComposeOwnership -ExpectedWorkingDir $projectRoot -ExpectedProject $resolved.name
+  docker compose build
+  if ($LASTEXITCODE -ne 0) { throw 'Build failed; running services were not restarted.' }
+  # Recheck ownership after the build, before any externally visible action.
+  Assert-ComposeOwnership -ExpectedWorkingDir $projectRoot -ExpectedProject $resolved.name
 $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz'
 $message = @"
 **🟠 NetherBeacon Alpha redémarre**
 
-Une mise à jour est en cours. Alpha et Bravo peuvent disparaître quelques secondes.
+Une mise à jour est en cours. Les services sélectionnés peuvent être indisponibles pendant leur redémarrage.
 
 **Action**
-- `docker compose up -d --build`
+- docker compose up -d --no-build
 
 **Déclenché**
 - $timestamp
 
-Les healthchecks Docker vérifieront séparément le retour des deux bots.
+Les healthchecks vérifieront Alpha et le processus Muse si le profil music est activé.
 "@
 
 if ($logChannelId) {
@@ -115,14 +134,8 @@ if ($logChannelId) {
   Write-Warning 'No runtime log channel is available; restarting without a Discord notice.'
 }
 
-Push-Location -LiteralPath $projectRoot
-try {
-  Remove-WrongOriginContainer -ContainerName 'nether-beacon' -ExpectedWorkingDir $projectRoot
-  Remove-WrongOriginContainer -ContainerName 'nether-beacon-muse' -ExpectedWorkingDir $projectRoot
-  docker compose up -d --build --wait --wait-timeout 120
-  if ($LASTEXITCODE -ne 0) {
-    exit $LASTEXITCODE
-  }
+  docker compose up -d --no-build --wait --wait-timeout 120
+  if ($LASTEXITCODE -ne 0) { throw 'Compose startup/health verification failed. Inspect local logs.' }
 } finally {
   Pop-Location
 }

@@ -70,7 +70,7 @@ test('Palworld REST client retries one transient network error and does not retr
     },
   });
 
-  await client.sendAnnouncement('Serveur ouvert');
+  await client.fetchMetrics();
   assert.equal(calls.length, 2);
 });
 
@@ -93,14 +93,14 @@ test('Palworld REST client opens a short circuit when the local API is down', as
   });
 
   await assert.rejects(() => client.sendAnnouncement('Test'), { code: 'NETWORK_ERROR' });
-  assert.equal(calls, 2, 'one transient retry is allowed');
+  assert.equal(calls, 1, 'POST must never retry after an ambiguous network failure');
 
   await assert.rejects(() => client.sendAnnouncement('Test'), { code: 'CIRCUIT_OPEN' });
-  assert.equal(calls, 2, 'open circuit should avoid another local API call');
+  assert.equal(calls, 1, 'open circuit should avoid another local API call');
 
   now += 31000;
   await assert.rejects(() => client.sendAnnouncement('Test'), { code: 'NETWORK_ERROR' });
-  assert.equal(calls, 4, 'circuit closes after the short cool-off window');
+  assert.equal(calls, 2, 'circuit closes after the short cool-off window');
 });
 
 test('formatPalworldAnnouncementForDiscord is public-safe and length-limited', () => {
