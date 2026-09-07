@@ -25,8 +25,8 @@ FROM ${MUSE_IMAGE} AS muse
 USER root
 WORKDIR /usr/app
 
-COPY config/muse-package.json ./package.json
-COPY config/muse-yarn.lock ./yarn.lock
+COPY --chmod=0644 config/muse-package.json ./package.json
+COPY --chmod=0644 config/muse-yarn.lock ./yarn.lock
 RUN yarn install --frozen-lockfile --production --ignore-scripts --non-interactive && \
     yarn cache clean && \
     npm install -g npm@12.0.2 && \
@@ -47,6 +47,8 @@ RUN if ! getent group 10001 >/dev/null; then groupadd --gid 10001 netherbeacon; 
     install -d -o 10001 -g 10001 -m 0750 /bot/runtime /bot/peer-state
 
 USER 10001:10001
+
+RUN node -e "for (const path of ['/usr/app/package.json', '/usr/app/yarn.lock', '/usr/app/dist/scripts/migrate-and-start.js']) require('fs').accessSync(path, require('fs').constants.R_OK)"
 
 ENTRYPOINT ["tini", "--"]
 CMD ["node", "/bot/muse-runner.js"]
