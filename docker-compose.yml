@@ -1,5 +1,3 @@
-name: nether-beacon
-
 services:
   nether-beacon:
     build:
@@ -52,8 +50,14 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ./runtime:/bot/runtime
+      - ${BOT_RUNTIME_HOST_PATH:?BOT_RUNTIME_HOST_PATH requis}:/bot/runtime
       - peer-state:/bot/peer-state:ro
+    labels:
+      - "nethercore.runtime.contract=compose-v1"
+      - "nethercore.service=nether-beacon"
+      - "nethercore.component=bot"
+      - "nethercore.backup.required-volumes=${MUSE_DATA_VOLUME:?MUSE_DATA_VOLUME requis}"
+      - "nethercore.backup.excluded-volumes=${BOT_PEER_STATE_VOLUME:?BOT_PEER_STATE_VOLUME requis}"
     tmpfs:
       - /tmp:size=256m,mode=1777
     logging:
@@ -69,7 +73,6 @@ services:
       start_period: 45s
 
   nether-beacon-muse:
-    profiles: [music]
     build:
       context: .
       target: muse
@@ -99,6 +102,10 @@ services:
     volumes:
       - muse-data:/data
       - peer-state:/bot/peer-state
+    labels:
+      - "nethercore.runtime.contract=compose-v1"
+      - "nethercore.service=nether-beacon"
+      - "nethercore.component=muse"
     tmpfs:
       - /tmp:size=256m,mode=1777
     logging:
@@ -118,3 +125,5 @@ volumes:
     external: true
     name: ${MUSE_DATA_VOLUME:?MUSE_DATA_VOLUME requis}
   peer-state:
+    external: true
+    name: ${BOT_PEER_STATE_VOLUME:?BOT_PEER_STATE_VOLUME requis}
