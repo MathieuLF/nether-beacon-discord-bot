@@ -1,4 +1,5 @@
 const fs = require('fs');
+require('dotenv').config({ quiet: true });
 const { paths } = require('./lib/config');
 const { isAdminHealthy } = require('./lib/service-health');
 

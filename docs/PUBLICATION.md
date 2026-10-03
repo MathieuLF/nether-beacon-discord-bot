@@ -30,7 +30,7 @@ npm ci
 npm run check
 ```
 
-`npm run verify:pokedex` is an optional network test. `docker compose config --quiet` and `docker compose build` are useful private preflight checks when Docker is available.
+`npm run check:dev` is the daily native profile. `npm run verify:pokedex` is an optional network test. Use `npm run check:release` before publication; it adds production dependency audit, candidate images, offline runtime probes and both image scanners. Portable Compose preflight uses `docker compose -f docker-compose.local.yml config --quiet`. Do not use the operator/Coolify Compose contract for local checks.
 
 ## Static presentation
 
@@ -42,4 +42,4 @@ npm run build:site
 
 Publishing the resulting directory is a separate, operator-authorized action.
 
-Command cards are generated from `lib/commands.js`. After changing commands, run `node scripts/generate-command-docs.js`; the build refuses stale cards. The shell-only static assembler remains available for existing hosts.
+Command cards are generated from `lib/commands.js`. After changing commands, run `node scripts/generate-command-docs.js`; the build refuses stale cards. The shell entrypoint delegates to the same Node assembler and requires Node.

@@ -52,6 +52,7 @@ This project depends on external software and services, including:
 - Palworld REST API for optional private-server metrics and announcement interoperability
 - Docker Desktop / Docker Engine for local container runtime
 - Node.js for the Alpha runtime
+- static FFmpeg/FFprobe 9.0.1 (GPL-3.0) and yt-dlp for the Muse runtime; image notices and component versions are included under `/licenses`
 
 Each third-party component remains subject to its own license, terms, policies, and trademark rules.
 

@@ -1,6 +1,6 @@
 # Assets
 
-Les visuels du projet sont ranges dans `C:\Dev\nether-beacon\assets`.
+Les visuels du projet sont rangés dans le répertoire `assets/` du dépôt.
 
 ## Inventaire
 

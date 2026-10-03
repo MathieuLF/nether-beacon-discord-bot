@@ -9,7 +9,8 @@ const run = (args, capture = false) => {
   if (result.error || result.status !== 0) throw new Error(`Docker ${args[0]} failed; initialization stopped.`);
   return result.stdout;
 };
-const compose = music ? ['compose', '--profile', 'music'] : ['compose'];
+const localCompose = ['compose', '-f', 'docker-compose.local.yml'];
+const compose = music ? [...localCompose, '--profile', 'music'] : localCompose;
 const initialize = (service, directories) => {
   const code = `const fs=require('node:fs'); for (const dir of ${JSON.stringify(directories)}) { fs.mkdirSync(dir,{recursive:true}); fs.chownSync(dir,10001,10001); }`;
   run([...compose, 'run', '--rm', '--no-deps', '-T', '--user', '0:0', '--cap-add', 'CHOWN', '--cap-add', 'DAC_OVERRIDE', '--entrypoint', 'node', service, '-e', code]);

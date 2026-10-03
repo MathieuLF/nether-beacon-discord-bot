@@ -1,0 +1,12 @@
+The Muse runtime includes FFmpeg and FFprobe 9.0.1 from
+mwader/static-ffmpeg:9.0.1, OCI index digest
+sha256:54e55b0cb8f672870fc38ceb2e6c411855cb3b39c505f5f3b2505ee01ed5f2b7.
+
+This static build is GPL version 3. The license is included at
+/licenses/GPL-3.0.txt, and component versions at /licenses/ffmpeg-versions.json.
+The binaries are installed at /usr/local/bin/ffmpeg and /usr/local/bin/ffprobe.
+
+Build recipes and source locations:
+https://github.com/wader/static-ffmpeg/tree/9.0.1
+https://github.com/FFmpeg/FFmpeg/tree/n9.0.1
+Third-party components retain their respective licenses.

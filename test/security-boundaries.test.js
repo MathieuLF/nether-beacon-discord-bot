@@ -146,8 +146,8 @@ test('Pokédex artwork metadata enforces host, IP and cache-key boundaries', asy
   );
 });
 
-test('Compose isolates Alpha and Muse credentials in separate services', () => {
-  const compose = fs.readFileSync(path.join(rootDir, 'docker-compose.yml'), 'utf8');
+for (const composeFile of ['docker-compose.yml', 'docker-compose.local.yml']) test(`${composeFile} isolates Alpha and Muse credentials in separate services`, () => {
+  const compose = fs.readFileSync(path.join(rootDir, composeFile), 'utf8');
   assert.match(compose, /^ {2}nether-beacon-muse:\s*$/m);
 
   const alphaBlock = compose.split(/^ {2}nether-beacon-muse:\s*$/m)[0];
