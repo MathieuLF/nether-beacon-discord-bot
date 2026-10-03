@@ -102,10 +102,10 @@ if (Test-Path -LiteralPath $adminStatePath) {
 Push-Location -LiteralPath $projectRoot
 try {
   # Capture resolved configuration internally; never print credential-bearing config.
-  $resolved = docker compose config --format json | ConvertFrom-Json
+  $resolved = docker compose -f docker-compose.local.yml config --format json | ConvertFrom-Json
   if ($LASTEXITCODE -ne 0 -or -not $resolved.name) { throw 'Invalid Compose configuration.' }
   Assert-ComposeOwnership -ExpectedWorkingDir $projectRoot -ExpectedProject $resolved.name
-  docker compose build
+  docker compose -f docker-compose.local.yml build
   if ($LASTEXITCODE -ne 0) { throw 'Build failed; running services were not restarted.' }
   # Recheck ownership after the build, before any externally visible action.
   Assert-ComposeOwnership -ExpectedWorkingDir $projectRoot -ExpectedProject $resolved.name
@@ -116,7 +116,7 @@ $message = @"
 Une mise à jour est en cours. Les services sélectionnés peuvent être indisponibles pendant leur redémarrage.
 
 **Action**
-- docker compose up -d --no-build
+- docker compose -f docker-compose.local.yml up -d --no-build
 
 **Déclenché**
 - $timestamp
@@ -134,7 +134,7 @@ if ($logChannelId) {
   Write-Warning 'No runtime log channel is available; restarting without a Discord notice.'
 }
 
-  docker compose up -d --no-build --wait --wait-timeout 120
+  docker compose -f docker-compose.local.yml up -d --no-build --wait --wait-timeout 120
   if ($LASTEXITCODE -ne 0) { throw 'Compose startup/health verification failed. Inspect local logs.' }
 } finally {
   Pop-Location

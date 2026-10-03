@@ -33,36 +33,44 @@ The selected profile is deployment configuration, not an indication that a publi
 
 ## Requirements
 
-- Node.js 24 and npm, or Docker Compose for an isolated local run.
+- Node.js 24.19.0 and npm 12.0.2 for reproducible native validation; Docker Engine with Compose v2 for containers.
 - Discord application credentials for bot integration tests.
 - Optional upstream credentials only for the features that use them.
 
 ## Local setup
 
 ```powershell
-Copy-Item .env.example .env
-npm ci
-npm run check
+npm run setup
+npm run check:dev
 ```
 
-Use placeholder or dedicated development credentials. Never reuse a production token in local development.
+No `.env`, credentials, database, browser or Docker daemon is needed for this offline setup. Select Node with `.nvmrc` and install the declared npm version first. See [Cloud setup and validation profiles](docs/CLOUD.md) and [the environment contract](docs/ENVIRONMENT.md).
+
+To run Alpha against a dedicated development guild, copy `.env.example` to `.env`, replace the Discord placeholders, keep `BOT_PROFILE=minimal`, and use `npm run dev` (watch) or `npm start`. Even minimal startup registers guild commands. Never reuse a production token in local development.
 
 To exercise the local Compose stack after reviewing `.env.example`:
 
 ```powershell
 npm run init:local
-docker compose up -d --wait nether-beacon
-docker compose ps
+docker compose -f docker-compose.local.yml up -d --wait nether-beacon
+docker compose -f docker-compose.local.yml ps
 ```
 
 ## Validation
 
 ```powershell
+npm run check:dev
+# Complete native checks (retained alias):
 npm run check
+# Optional live data integration:
 npm run verify:pokedex
+# Disposable image/runtime validation (Docker required):
+npm run check:containers
+# Publication checks, including dependency and image audits:
+npm run check:release
 ```
 
-`npm test` is the default offline-oriented validation. `verify:pokedex` contacts PokéAPI and should be run only when an upstream network check is intended.
+`check:dev` checks JavaScript syntax, plan contracts, lint, scoped types, all offline tests and one static build using installed dependencies. It does not start Discord, Muse or Docker. Typecheck currently targets three modules; syntax and lint cover owned JavaScript. Tests simulate integrations; the restart-ownership test runs only on Windows. Passing development checks does not certify release readiness or live audio. `verify:pokedex` contacts PokéAPI and should be run only when an upstream network check is intended.
 
 ## Repository map
 

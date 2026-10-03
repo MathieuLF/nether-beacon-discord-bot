@@ -4,8 +4,11 @@
   "private": true,
   "license": "MIT",
   "type": "commonjs",
-  "description": "Discord admin and music stack for Docker Desktop",
+  "description": "Self-hosted Discord administration and isolated music stack",
   "scripts": {
+    "setup": "node scripts/setup.js",
+    "dev": "node --watch bot.js",
+    "syntax": "node scripts/check-syntax.js",
     "start": "node bot.js",
     "healthcheck": "node healthcheck.js",
     "validate:config": "node scripts/validate-config.js",
@@ -16,7 +19,10 @@
     "typecheck": "tsc -p tsconfig.json",
     "build:site": "node scripts/build-public-site.js",
     "init:local": "node scripts/init-local.js",
-    "check": "npm run validate:config && npm run lint && npm run typecheck && npm test && npm run build:site"
+    "check:dev": "node scripts/check-dev.js",
+    "check:containers": "node scripts/check-containers.js",
+    "check:release": "npm run check && npm audit --omit=dev --audit-level=high && npm run check:containers -- --scan",
+    "check": "npm run check:dev"
   },
   "dependencies": {
     "ajv": "8.20.0",
@@ -24,7 +30,8 @@
     "dotenv": "17.4.2"
   },
   "overrides": {
-    "undici": "6.28.0"
+    "undici": "6.28.1",
+    "fast-uri": "3.1.8"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -34,6 +41,8 @@
     "typescript": "7.0.2"
   },
   "engines": {
-    "node": ">=24.0.0"
-  }
+    "node": ">=24.19.0 <25",
+    "npm": "12.0.2"
+  },
+  "packageManager": "npm@12.0.2"
 }

@@ -14,8 +14,9 @@ function docker {
       @(@{ Config = @{ Labels = @{ 'com.docker.compose.project.working_dir' = $origin; 'com.docker.compose.project' = 'nether-beacon' } } }) | ConvertTo-Json -Depth 5 -AsArray
     }
     'compose' {
-      if ($args[1] -eq 'config') { '{"name":"nether-beacon"}' }
-      elseif ($args[1] -eq 'build' -and $global:NetherBeaconTestScenario -eq 'build-failed') { $global:LASTEXITCODE = 1 }
+      if ($args[1] -ne '-f' -or $args[2] -ne 'docker-compose.local.yml') { throw 'Restart must select the portable local Compose contract.' }
+      if ($args[3] -eq 'config') { '{"name":"nether-beacon"}' }
+      elseif ($args[3] -eq 'build' -and $global:NetherBeaconTestScenario -eq 'build-failed') { $global:LASTEXITCODE = 1 }
     }
     default { throw "Unexpected Docker action: $($args -join ' ')" }
   }
@@ -31,8 +32,8 @@ try {
     $failed = $false
     try { & $target } catch { $failed = $true }
     if ($global:NetherBeaconTestCalls | Where-Object { $_ -match '^(stop|rm) ' }) { throw 'Destructive Docker call observed.' }
-    $up = @($global:NetherBeaconTestCalls | Where-Object { $_ -like 'compose up*' })
-    $build = @($global:NetherBeaconTestCalls | Where-Object { $_ -eq 'compose build' })
+    $up = @($global:NetherBeaconTestCalls | Where-Object { $_ -like 'compose -f docker-compose.local.yml up*' })
+    $build = @($global:NetherBeaconTestCalls | Where-Object { $_ -eq 'compose -f docker-compose.local.yml build' })
     if ($scenarioName -eq 'foreign' -and (-not $failed -or $build.Count -or $up.Count)) { throw 'Foreign source did not stop before build.' }
     if ($scenarioName -eq 'build-failed' -and (-not $failed -or $up.Count)) { throw 'Failed build restarted services.' }
     if ($scenarioName -eq 'owned' -and ($failed -or $up.Count -ne 1)) { throw 'Legitimate owned restart did not succeed.' }

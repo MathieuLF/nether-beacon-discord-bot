@@ -101,7 +101,7 @@ diagnostics réponses privées</pre>
           <ol class="timeline" role="list">
             <li class="step"><div><strong>Préparer la configuration.</strong><p>Récupère le dépôt, copie <code>.env.example</code> vers <code>.env</code>, puis renseigne le jeton d’Alpha et l’identifiant du serveur. Garde <code>BOT_PROFILE=minimal</code> pour commencer.</p></div></li>
             <li class="step"><div><strong>Installer et vérifier.</strong><p>Lance <code>npm ci</code>, puis <code>npm run check</code>. Ces vérifications ne connectent pas le bot à Discord.</p></div></li>
-            <li class="step"><div><strong>Initialiser les dossiers et démarrer Alpha.</strong><p>Lance <code>npm run init:local</code>, puis <code>docker compose up -d --wait nether-beacon</code>. Dans Discord, essaie <code>/help</code>.</p></div></li>
+            <li class="step"><div><strong>Initialiser les dossiers et démarrer Alpha.</strong><p>Lance <code>npm run init:local</code>, puis <code>docker compose -f docker-compose.local.yml up -d --wait nether-beacon</code>. Dans Discord, essaie <code>/help</code>.</p></div></li>
             <li class="step"><div><strong>Activer les fonctions supplémentaires.</strong><p>Pour <code>full</code>, vérifie le plan du serveur et les intents Discord, puis capture les identifiants des ressources existantes. Pour Muse, configure ses identifiants et initialise son volume. Le guide décrit ces deux parcours séparément.</p></div></li>
           </ol>
           <div class="actions">

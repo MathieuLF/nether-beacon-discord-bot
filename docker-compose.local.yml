@@ -1,0 +1,120 @@
+name: nether-beacon
+
+services:
+  nether-beacon:
+    build:
+      context: .
+      target: alpha
+    image: nether-beacon:alpha-latest
+    command: ["node", "/bot/bot.js"]
+    environment:
+      - DISCORD_GUILD_ID
+      - DISCORD_BOT_TOKEN
+      - BOT_PROFILE
+      - BOT_TIMEZONE
+      - BOT_RUNTIME_DIR=/bot/runtime
+      - BOT_PEER_STATE_DIR=/bot/peer-state
+      - BOT_STATS_EVENT_DEBOUNCE_MS
+      - BOT_STATS_VOICE_REFRESH_INTERVAL_MS
+      - BOT_POKEAPI_CACHE_TTL_DAYS
+      - BOT_POKEAPI_MAX_ASSET_BYTES
+      - BOT_POKEAPI_MAX_JSON_BYTES
+      - BOT_POKEAPI_MAX_MEMORY_ENTRIES
+      - BOT_POKEAPI_MAX_CACHE_BYTES
+      - BOT_POKEAPI_MAX_CACHE_FILES
+      - BOT_POKEAPI_MAX_CONCURRENT_REQUESTS
+      - BOT_POKEAPI_GLOBAL_COOLDOWN_MS
+      - BOT_PALWORLD_CHANNEL_NAME
+      - BOT_PALWORLD_PUBLIC_FETCH_TIMEOUT_MS
+      - BOT_PALWORLD_PUBLIC_CACHE_TTL_MS
+      - BOT_PALWORLD_REST_API_URL
+      - BOT_PALWORLD_REST_API_USERNAME
+      - BOT_PALWORLD_REST_API_PASSWORD
+      - BOT_PALWORLD_REST_FETCH_TIMEOUT_MS
+      - BOT_PALWORLD_REST_CIRCUIT_BREAKER_MS
+      - BOT_PALWORLD_METRICS_COOLDOWN_MS
+      - BOT_PALWORLD_ADMIN_COOLDOWN_MS
+      - BOT_PALWORLD_ADMIN_CHANNEL_IDS
+      - BOT_PALWORLD_ADMIN_CHANNEL_NAMES
+      - GAYLEMON_PUBLIC_BASE_URL
+      - GAYLEMON_DAILY_SUMMARY_TIME_ZONE
+      - GAYLEMON_DAILY_SUMMARY_FETCH_TIMEOUT_MS
+      - GAYLEMON_DAILY_SUMMARY_MAX_JSON_BYTES
+      - GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_IDS
+      - GAYLEMON_DAILY_SUMMARY_COMMAND_CHANNEL_NAMES
+    restart: always
+    user: "10001:10001"
+    read_only: true
+    cpus: 1.0
+    mem_limit: 512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./runtime:/bot/runtime
+      - peer-state:/bot/peer-state:ro
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "/bot/healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  nether-beacon-muse:
+    profiles: [music]
+    build:
+      context: .
+      target: muse
+    image: nether-beacon:muse-latest
+    command: ["node", "/bot/muse-runner.js"]
+    environment:
+      - MUSE_DISCORD_TOKEN
+      - MUSE_YOUTUBE_API_KEY
+      - MUSE_SPOTIFY_CLIENT_ID
+      - MUSE_SPOTIFY_CLIENT_SECRET
+      - MUSE_CACHE_LIMIT
+      - MUSE_YT_DLP_AUTO_UPDATE
+      - MUSE_ENABLE_SPONSORBLOCK
+      - MUSE_BOT_STATUS
+      - MUSE_BOT_ACTIVITY_TYPE
+      - MUSE_BOT_ACTIVITY
+      - BOT_PEER_STATE_DIR=/bot/peer-state
+    restart: always
+    user: "10001:10001"
+    read_only: true
+    cpus: 1.0
+    mem_limit: 512m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - muse-data:/data
+      - peer-state:/bot/peer-state
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "node", "/bot/muse-healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+volumes:
+  muse-data:
+    external: true
+    name: ${MUSE_DATA_VOLUME:-example-muse-data}
+  peer-state:

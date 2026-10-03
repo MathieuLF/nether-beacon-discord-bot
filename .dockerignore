@@ -12,3 +12,4 @@ temp
 *.log
 npm-debug.log*
 docker-compose.override.yml
+.playwright-cli
