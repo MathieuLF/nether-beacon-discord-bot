@@ -1,4 +1,4 @@
-# NetherBeacon agent instructions
+# NetherBeacon contributor guide
 
 ## Setup and everyday validation
 
