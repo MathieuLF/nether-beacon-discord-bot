@@ -1,4 +1,4 @@
-# environnement de développement distant and validation profiles
+# Development and validation profiles
 
 ## Reproducible setup
 
@@ -14,7 +14,7 @@ npm run setup
 npm run check:dev
 ```
 
-`nvm` is an optional runtime selector, not an application dependency. In Cloud, select the same Node version in environment settings or prepare it using the available runtime manager. Use `npm run setup` as the install command; it fails on mismatched tools and uses `npm ci --no-fund --no-audit`. Re-run setup when package-lock.json changes. Installation needs public npm registry access. No secret is required.
+`nvm` is an optional runtime selector, not an application dependency. For a remote development environment, select the same Node version or prepare it using the available runtime manager. Use `npm run setup` as the install command; it fails on mismatched tools and uses `npm ci --no-fund --no-audit`. Re-run setup when package-lock.json changes. Installation needs public npm registry access. No secret is required.
 
 The daily command reuses dependencies. It runs syntax, JSON configuration validation, lint, scoped typecheck, offline tests and one site build. It writes ignored `public/` output and temporary test fixtures, but must not change tracked files. `npm run check` remains available with the same native checks. No application endpoint exists: Alpha connects outbound to Discord and its healthcheck reads a local heartbeat.
 
@@ -34,7 +34,7 @@ For explicitly requested live Alpha work, follow OPERATIONS.md: create a dedicat
 
 `npm run verify:pokedex` is optional, contacts PokéAPI/artwork hosts and writes a local cache. This is a data-integration check, not real Discord interaction proof. A cached response alone does not establish fresh upstream availability.
 
-Allow only destinations required for the task: npm for installation; `pokeapi.co` and `raw.githubusercontent.com` for live Pokédex; configured public/REST endpoints for Palworld; Discord API/Gateway for connected Alpha. Validate Gateway transport and Cloud credential delivery separately before relying on a network proxy secret. Never persist production credentials to bypass Cloud restrictions. Music also requires provider and voice transport access; it is not part of daily validation.
+Allow only destinations required for the task: npm for installation; `pokeapi.co` and `raw.githubusercontent.com` for live Pokédex; configured public/REST endpoints for Palworld; Discord API/Gateway for connected Alpha. Validate Gateway transport and development credential delivery separately before relying on a network proxy. Use credentials dedicated to the development installation. Music also requires provider and voice transport access; it is not part of daily validation.
 
 ## Containers and publication validation
 
