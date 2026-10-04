@@ -19,7 +19,7 @@ for (const target of targets) {
   const isolated = ['run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges:true'];
   docker([...isolated, '--entrypoint', 'node', image, '-e', "if(process.getuid()!==10001)process.exit(1);require('/bot/lib/service-health');console.log(process.version)"]);
   if (target === 'muse') {
-    docker([...isolated, '--tmpfs', '/tmp:rw,nosuid,nodev,size=128m', '--mount', `type=bind,source=${path.join(root, 'scripts', 'verify-muse-runtime.js')},target=/tmp/verify-muse-runtime.js,readonly`, '--entrypoint', 'node', image, '/tmp/verify-muse-runtime.js']);
+    docker([...isolated, '--tmpfs', '/tmp:rw,nosuid,nodev,size=128m', '--mount', `type=bind,source=${path.join(root, 'scripts', 'verify-muse-runtime.js')},target=/tmp/verify-muse-runtime.js,readonly`, '--mount', `type=bind,source=${path.join(root, 'scripts', 'verify-zlib-runtime.py')},target=/tmp/verify-zlib-runtime.py,readonly`, '--entrypoint', 'node', image, '/tmp/verify-muse-runtime.js']);
   }
   if (args.includes('--scan')) {
     for (const scanner of scanners) {

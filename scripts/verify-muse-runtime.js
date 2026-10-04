@@ -7,6 +7,7 @@ const requireMuse = createRequire('/usr/app/package.json');
 
 async function main() {
   assert.equal(process.getuid(), 10001);
+  execFileSync('python3', ['/tmp/verify-zlib-runtime.py'], { timeout: 15000, stdio: 'inherit' });
   for (const installer of ['/opt/yt-dlp/bin/pip', '/usr/lib/python3.14/ensurepip', '/usr/local/bin/npm', '/usr/local/bin/yarn']) {
     assert.equal(fs.existsSync(installer), false, `Runtime must not retain ${installer}`);
   }

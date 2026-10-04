@@ -32,6 +32,8 @@ npm run check
 
 `npm run check:dev` is the daily native profile. `npm run verify:pokedex` is an optional network test. Use `npm run check:release` before publication; it adds production dependency audit, candidate images, offline runtime probes and both image scanners. Portable Compose preflight uses `docker compose -f docker-compose.local.yml config --quiet`. Do not use the operator/Coolify Compose contract for local checks.
 
+Both runtime images install the same source-built zlib APK from upstream commit `d81c2d7eb705c62294ba03299255672078e89115`. This snapshot contains the non-blocking gzip write fixes for CVE-2026-85091. The archive is checked by SHA-256 and SHA-512; the package version `1.3.2.1_git20260917-r0` describes the real upstream `1.3.2.1-motley` snapshot. Its license is retained in the images. Compiler tools and signing keys remain in the build stage. The offline Muse probe checks the loaded library, ordinary gzip compression and blocked writes in three modes. Trivy and Grype retain their existing failure thresholds.
+
 ## Static presentation
 
 The public presentation source lives under `docs/site/`. Build a deployable directory without assuming a particular host or platform:

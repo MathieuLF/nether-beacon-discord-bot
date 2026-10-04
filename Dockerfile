@@ -3,6 +3,20 @@ ARG MUSE_IMAGE=ghcr.io/museofficial/muse:2.11.7@sha256:441024557b543e5f693c28258
 ARG MUSE_NODE_IMAGE=node:22.23.2-alpine3.24@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
 ARG FFMPEG_IMAGE=mwader/static-ffmpeg:9.0.1@sha256:54e55b0cb8f672870fc38ceb2e6c411855cb3b39c505f5f3b2505ee01ed5f2b7
 
+FROM ${ALPHA_NODE_IMAGE} AS zlib-build
+
+# Upstream snapshot includes the complete non-blocking gzip write fixes.
+# Keep the real snapshot version in APK metadata and retain normal scanner gates.
+RUN apk add --no-cache build-base abuild && mkdir -p /src/zlib /packages
+ADD --checksum=sha256:405ac4ad42a57eef1beab57536fc77367f08a5008a5d8ce652148c5dc4d9fe76 https://github.com/madler/zlib/archive/d81c2d7eb705c62294ba03299255672078e89115.tar.gz /src/zlib/zlib.tar.gz
+COPY config/zlib.APKBUILD /src/zlib/APKBUILD
+WORKDIR /src/zlib
+RUN abuild-keygen -a -n && \
+    cp /root/.abuild/*.pub /etc/apk/keys/ && \
+    REPODEST=/packages abuild -F && \
+    cp /root/.abuild/*.pub /packages/ && \
+    cp /packages/*/*/zlib-*.apk /packages/zlib.apk
+
 FROM ${ALPHA_NODE_IMAGE} AS alpha
 
 WORKDIR /bot
@@ -12,6 +26,10 @@ RUN apk upgrade --no-cache && \
     addgroup --gid 10001 --system netherbeacon && \
     adduser --uid 10001 --system --disabled-password --no-create-home --ingroup netherbeacon netherbeacon && \
     install -d -o 10001 -g 10001 -m 0750 /bot/runtime /bot/peer-state
+
+COPY --from=zlib-build /packages/*.pub /etc/apk/keys/
+COPY --from=zlib-build /packages/zlib.apk /tmp/zlib.apk
+RUN apk add --no-cache /tmp/zlib.apk && rm /tmp/zlib.apk
 
 COPY package.json package-lock.json ./
 RUN npm install --global npm@12.0.2 && \
@@ -49,6 +67,10 @@ RUN apk upgrade --no-cache && \
     apk del py3-pip && \
     /opt/yt-dlp/bin/pip uninstall --yes pip && \
     rm -rf /usr/lib/python3.14/ensurepip
+
+COPY --from=zlib-build /packages/*.pub /etc/apk/keys/
+COPY --from=zlib-build /packages/zlib.apk /tmp/zlib.apk
+RUN apk add --no-cache /tmp/zlib.apk && rm /tmp/zlib.apk
 
 FROM muse-base AS muse-dependencies
 
