@@ -16,7 +16,8 @@ No application variable or secret is required by setup or offline checks. Copy `
 | Muse connection | `MUSE_DISCORD_TOKEN` | Required by music runner; separate secret |
 | Muse providers | `MUSE_YOUTUBE_API_KEY`, `MUSE_SPOTIFY_CLIENT_ID`, `MUSE_SPOTIFY_CLIENT_SECRET` | Provider credentials for music features; API key/client secret are secrets; upstream may enforce them at startup |
 | Muse behavior | `MUSE_CACHE_LIMIT`, `MUSE_ENABLE_SPONSORBLOCK`, `MUSE_BOT_STATUS`, `MUSE_BOT_ACTIVITY_TYPE`, `MUSE_BOT_ACTIVITY` | Optional defaults |
-| Muse volume | `MUSE_DATA_VOLUME` | Optional historical default; choose a distinct value for another installation, preserve it for upgrades |
+| Compose runtime mount | `BOT_RUNTIME_HOST_PATH` | Required by the root Compose contract; supply the installation's runtime directory |
+| Compose volumes | `MUSE_DATA_VOLUME`, `BOT_PEER_STATE_VOLUME` | Required by the root Compose contract; preserve existing volume names during upgrades |
 | Immutable update policy | `MUSE_YT_DLP_AUTO_UPDATE` | Compatibility setting only; runner always forces false |
 
 The Muse runner constructs upstream `DATA_DIR`, `DISCORD_TOKEN`, `YOUTUBE_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `CACHE_LIMIT`, `YT_DLP_AUTO_UPDATE`, `ENABLE_SPONSORBLOCK`, `BOT_STATUS`, `BOT_ACTIVITY_TYPE`, `BOT_ACTIVITY` and `ENV_FILE`; do not inject Alpha secrets into Muse. The image defines `MUSE_BUNDLED_YT_DLP_PATH`; the offline smoke defines temporary `DATABASE_URL`. Muse also passes through standard `PATH`, `HOME`, `LANG`, `LC_ALL`, `TZ`, `TMPDIR`, `TMP`, `TEMP`, `NODE_ENV`, `SSL_CERT_FILE`, `SSL_CERT_DIR` and `NODE_EXTRA_CA_CERTS` when supplied. Do not disable TLS verification.

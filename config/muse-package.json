@@ -133,6 +133,7 @@
     "ytsr": "^3.8.4"
   },
   "resolutions": {
+    "http-cache-semantics": "4.3.0",
     "@types/ws": "8.18.1",
     "form-data": "4.0.6",
     "tar": "7.5.22",

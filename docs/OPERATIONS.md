@@ -31,7 +31,7 @@ Try `/help` in Discord. `/status` is reserved for administrators. `npm run check
 
 ## Enable music
 
-Fill the `MUSE_*` credentials in `.env`. Muse uses a second Discord application, invited with its own music permissions. Keep `MUSE_DATA_VOLUME` unchanged for an existing installation; its historical default is `example-muse-data`. Choose a distinct volume name for a separate installation. An empty/new volume does not migrate an old database.
+Fill the `MUSE_*` credentials in `.env`. Muse uses a second Discord application, invited with its own music permissions. The root Compose contract requires `BOT_RUNTIME_HOST_PATH`, `MUSE_DATA_VOLUME` and `BOT_PEER_STATE_VOLUME`; supply the actual existing directory and volume names outside Git. Preserve these values during upgrades. Choose distinct resources for a separate installation. An empty/new volume does not migrate an old database.
 
 ```text
 npm run init:local -- --music
