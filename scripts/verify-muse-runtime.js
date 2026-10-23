@@ -6,6 +6,8 @@ const { execFileSync } = require('node:child_process');
 const requireMuse = createRequire('/usr/app/package.json');
 
 async function main() {
+  assert.equal(process.version, 'v22.23.4');
+  assert.equal(requireMuse('./package.json').version, '2.11.8');
   assert.equal(process.getuid(), 10001);
   execFileSync('python3', ['/tmp/verify-zlib-runtime.py'], { timeout: 15000, stdio: 'inherit' });
   for (const installer of ['/opt/yt-dlp/bin/pip', '/usr/lib/python3.14/ensurepip', '/usr/local/bin/npm', '/usr/local/bin/yarn']) {

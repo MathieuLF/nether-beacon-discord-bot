@@ -2,7 +2,7 @@
 
 ## Reproducible setup
 
-Use Ubuntu with Node **24.19.0** and npm **12.0.2**. Alpha's native checks require no Docker, database server, browser, `.env` or credentials.
+Use Ubuntu with Node **24.22.1** and npm **12.0.2**. Alpha's native checks require no Docker, database server, browser, `.env` or credentials.
 
 ```bash
 git clone <repository-url>
