@@ -33,7 +33,7 @@ The selected profile is deployment configuration, not an indication that a publi
 
 ## Requirements
 
-- Node.js 24.19.0 and npm 12.0.2 for reproducible native validation; Docker Engine with Compose v2 for containers.
+- Node.js 24.22.1 and npm 12.0.2 for reproducible native validation; Docker Engine with Compose v2 for containers.
 - Discord application credentials for bot integration tests.
 - Optional upstream credentials only for the features that use them.
 

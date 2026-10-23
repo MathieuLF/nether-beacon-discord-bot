@@ -1,6 +1,6 @@
 {
   "name": "muse",
-  "version": "2.11.7",
+  "version": "2.11.8",
   "description": "🎧 a self-hosted Discord music bot that doesn't suck ",
   "repository": "git@github.com:museofficial/muse.git",
   "author": "Max Isom <hi@maxisom.me>",
@@ -138,6 +138,7 @@
     "form-data": "4.0.6",
     "tar": "7.5.22",
     "axios": "1.20.0",
+    "follow-redirects": "1.16.1",
     "@discordjs/rest/undici": "6.28.1",
     "discord.js/undici": "6.28.1",
     "@distube/ytsr/undici": "6.28.1",

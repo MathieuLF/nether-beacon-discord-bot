@@ -2,7 +2,7 @@
 
 ## Setup and everyday validation
 
-- Use Node 24.19.0 (`.nvmrc`) and npm 12.0.2 (`packageManager`). Run `npm run setup` for a frozen `npm ci`; repeat after lockfile changes.
+- Use Node 24.22.1 (`.nvmrc`) and npm 12.0.2 (`packageManager`). Run `npm run setup` for a frozen `npm ci`; repeat after lockfile changes.
 - After setup, use `npm run check:dev` for daily work. It checks all JavaScript syntax, server-plan schema/semantics, ESLint, scoped JS types, offline unit/simulated integration tests and the static build.
 - `npm run check` retains the complete existing native validation through the same profile. Neither command builds Docker images or starts Discord, Muse or a database service.
 - Typecheck roots are currently three modules in `tsconfig.json`; do not describe this as whole-application type safety. Syntax and lint cover all owned JS. Expand types incrementally when useful; no architectural migration is required.
