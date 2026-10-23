@@ -102,4 +102,4 @@ Alpha health requires initialization, a ready Discord Gateway and a recent heart
 
 Back up non-reconstructible runtime identifiers and Muse data; peer heartbeats and Pokédex caches are reconstructible. Test restores in an isolated project. Keep secrets, player identifiers and operational topology out of Git and public logs.
 
-The 2.11.8 upstream package manifest changes only its version from 2.11.7. Existing local security overrides are preserved; the follow-redirects override and frozen Yarn lock advance to 1.16.1 for CVE-2026-111755 and CVE-2026-111756. Runtime verification asserts the upstream application and patched Node versions.
+The 2.11.8 upstream package manifest changes only its version from 2.11.7. Existing local security overrides are preserved; the follow-redirects override and frozen Yarn lock advance to 1.16.1 for CVE-2026-111755 and CVE-2026-111756. The regenerated frozen lock also pins qs 6.16.0 and brace-expansion 1.1.21 to address the dependency findings from the container scans. Runtime verification asserts the upstream application and patched Node versions.
